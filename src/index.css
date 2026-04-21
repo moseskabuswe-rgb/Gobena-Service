@@ -1,0 +1,93 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    background-color: #fdf8f2;
+    color: #2c1a0e;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: 'Playfair Display', Georgia, serif;
+  }
+}
+
+@layer components {
+  /* Card */
+  .card {
+    @apply bg-white rounded-2xl shadow-card border border-cream-200/60 p-5;
+  }
+
+  /* Buttons */
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
+           bg-brew-700 text-cream-50 font-body font-medium text-sm
+           hover:bg-brew-800 active:scale-95 transition-all duration-150
+           shadow-sm;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
+           bg-cream-100 text-roast-700 font-body font-medium text-sm
+           hover:bg-cream-200 active:scale-95 transition-all duration-150
+           border border-cream-300;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
+           bg-red-600 text-white font-body font-medium text-sm
+           hover:bg-red-700 active:scale-95 transition-all duration-150;
+  }
+
+  /* Form fields */
+  .form-input {
+    @apply w-full px-4 py-2.5 rounded-xl border border-cream-300
+           bg-cream-50 text-bark placeholder-latte/70
+           font-body text-sm
+           focus:outline-none focus:ring-2 focus:ring-brew-400/40 focus:border-brew-400
+           transition-colors duration-150;
+  }
+
+  .form-label {
+    @apply block text-xs font-medium text-roast-600 mb-1.5 uppercase tracking-wide;
+  }
+
+  /* Page title */
+  .page-title {
+    @apply font-display text-2xl font-semibold text-bark;
+  }
+
+  .page-subtitle {
+    @apply text-sm text-roast-500 font-body mt-0.5;
+  }
+
+  /* Section heading */
+  .section-title {
+    @apply font-display text-lg font-medium text-roast-800;
+  }
+
+  /* Badge base */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium font-body;
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #fdf7ee;
+}
+::-webkit-scrollbar-thumb {
+  background: #d4bfa3;
+  border-radius: 3px;
+}
+
+/* Smooth focus rings */
+*:focus-visible {
+  outline: 2px solid #b87d36;
+  outline-offset: 2px;
+}
