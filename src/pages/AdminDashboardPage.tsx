@@ -6,24 +6,246 @@ import {
   getShops,
   updateServiceRequestStatus,
 } from '../lib/queries';
+import { supabase } from '../lib/supabaseClient';
 import type { Equipment, ServiceRequest, Shop, RequestStatus } from '../types';
 import { StatusBadge, RequestStatusBadge, PriorityBadge } from '../components/StatusBadge';
 import { Link } from 'react-router-dom';
 import {
   Building2, Wrench, ClipboardList, AlertTriangle,
-  ChevronRight, Search, Plus,
+  ChevronRight, Search, Plus, X, CheckCircle,
 } from 'lucide-react';
 
 function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    month: 'short', day: 'numeric',
-  });
+  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 type Tab = 'overview' | 'equipment' | 'requests';
 
+const STATUS_OPTIONS: { value: string; label: string; color: string }[] = [
+  { value: 'good',            label: 'Good',            color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  { value: 'needs_attention', label: 'Needs Attention', color: 'bg-amber-50 text-amber-700 border-amber-200'       },
+  { value: 'urgent',          label: 'Urgent',          color: 'bg-red-50 text-red-700 border-red-200'             },
+];
+
+// ── Inline equipment status editor ──────────────────────────────────────────
+function EquipmentStatusEditor({
+  equipment: eq,
+  onClose,
+  onSaved,
+}: {
+  equipment: Equipment;
+  onClose: () => void;
+  onSaved: (id: string, status: string) => void;
+}) {
+  const [status,  setStatus]  = useState(eq.status);
+  const [notes,   setNotes]   = useState((eq as any).notes ?? '');
+  const [saving,  setSaving]  = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    const { error } = await supabase
+      .from('equipment')
+      .update({ status, notes: notes.trim() || null, last_service: new Date().toISOString().slice(0, 10) })
+      .eq('id', eq.id);
+    setSaving(false);
+    if (!error) {
+      setSuccess(true);
+      onSaved(eq.id, status);
+      setTimeout(onClose, 800);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-bark/40 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-lifted w-full max-w-sm">
+        <div className="flex items-center justify-between p-5 border-b border-cream-100">
+          <div>
+            <h2 className="font-display text-base font-semibold text-bark">Update Equipment</h2>
+            <p className="text-xs text-roast-400 mt-0.5">{eq.name}</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-cream-100 text-roast-400">
+            <X size={16} />
+          </button>
+        </div>
+        <div className="p-5 space-y-4">
+          <div>
+            <label className="form-label">Status</label>
+            <div className="grid grid-cols-3 gap-2">
+              {STATUS_OPTIONS.map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setStatus(opt.value as any)}
+                  className={`py-2 px-2 rounded-xl border text-xs font-medium transition-all ${
+                    status === opt.value
+                      ? `border-brew-500 bg-brew-50 text-brew-700 shadow-sm`
+                      : 'border-cream-200 bg-cream-50 text-roast-500 hover:border-brew-300'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="form-label">Notes</label>
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              rows={3}
+              placeholder="Service notes, observations…"
+              className="form-input resize-none text-sm"
+            />
+          </div>
+          <div className="flex gap-3">
+            <button onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+            <button
+              onClick={save}
+              disabled={saving || success}
+              className="btn-primary flex-1 justify-center disabled:opacity-60"
+            >
+              {success ? (
+                <span className="flex items-center gap-1.5"><CheckCircle size={14} /> Saved</span>
+              ) : saving ? 'Saving…' : 'Save Changes'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Shop detail drawer ───────────────────────────────────────────────────────
+function ShopDrawer({
+  shop,
+  equipment,
+  requests,
+  onClose,
+  onEditEquipment,
+}: {
+  shop: Shop;
+  equipment: Equipment[];
+  requests: ServiceRequest[];
+  onClose: () => void;
+  onEditEquipment: (eq: Equipment) => void;
+}) {
+  const navigate = useNavigate();
+  const shopEq   = equipment.filter(e => e.shop_id === shop.id);
+  const shopReqs = requests.filter(r => r.shop_id === shop.id);
+  const openReqs = shopReqs.filter(r => r.status === 'open' || r.status === 'in_progress');
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-bark/40 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-lifted w-full max-w-md max-h-[85vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-start justify-between p-5 border-b border-cream-100 sticky top-0 bg-white rounded-t-2xl">
+          <div>
+            <h2 className="font-display text-lg font-semibold text-bark">{shop.name}</h2>
+            <p className="text-xs text-roast-400 mt-0.5">{shop.city}, {shop.state}</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-cream-100 text-roast-400 shrink-0">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-5">
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'Equipment', value: shopEq.length },
+              { label: 'Open Requests', value: openReqs.length },
+              { label: 'Total Requests', value: shopReqs.length },
+            ].map(s => (
+              <div key={s.label} className="card py-3 text-center">
+                <p className="text-xl font-display font-bold text-bark">{s.value}</p>
+                <p className="text-xs text-roast-400">{s.label}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Equipment list */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="section-title">Equipment</h3>
+              <button
+                onClick={() => { onClose(); navigate('/admin/add-equipment'); }}
+                className="text-xs text-brew-600 font-medium flex items-center gap-1 hover:text-brew-800"
+              >
+                <Plus size={12} /> Add
+              </button>
+            </div>
+            {shopEq.length === 0 ? (
+              <p className="text-sm text-roast-400 text-center py-4">No equipment yet.</p>
+            ) : (
+              <div className="divide-y divide-cream-100 border border-cream-200 rounded-xl overflow-hidden">
+                {shopEq.map(eq => (
+                  <div key={eq.id} className="flex items-center gap-3 px-4 py-3 hover:bg-cream-50/60">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-bark truncate">{eq.name}</p>
+                      <p className="text-xs text-roast-400">{eq.category}{eq.model ? ` · ${eq.model}` : ''}</p>
+                    </div>
+                    <StatusBadge status={eq.status} />
+                    <div className="flex gap-1.5 shrink-0">
+                      <button
+                        onClick={() => onEditEquipment(eq)}
+                        className="text-xs px-2 py-1 rounded-lg bg-cream-100 text-roast-500 hover:bg-cream-200 border border-cream-200"
+                      >
+                        Edit
+                      </button>
+                      <Link
+                        to={`/equipment/${eq.id}`}
+                        onClick={onClose}
+                        className="text-xs px-2 py-1 rounded-lg bg-brew-50 text-brew-700 hover:bg-brew-100 border border-brew-200"
+                      >
+                        View
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Recent requests */}
+          <div>
+            <h3 className="section-title mb-2">Recent Requests</h3>
+            {shopReqs.length === 0 ? (
+              <p className="text-sm text-roast-400 text-center py-4">No requests yet.</p>
+            ) : (
+              <div className="divide-y divide-cream-100 border border-cream-200 rounded-xl overflow-hidden">
+                {shopReqs.slice(0, 5).map(req => (
+                  <div key={req.id} className="flex items-center gap-3 px-4 py-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-bark truncate">{req.issue_type}</p>
+                      <p className="text-xs text-roast-400">{formatDate(req.created_at)}</p>
+                    </div>
+                    <RequestStatusBadge status={req.status} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Contact info */}
+          {((shop as any).contact_name || (shop as any).contact_email || (shop as any).contact_phone) && (
+            <div className="border-t border-cream-100 pt-4">
+              <h3 className="section-title mb-2">Contact</h3>
+              {(shop as any).contact_name  && <p className="text-sm text-bark font-medium">{(shop as any).contact_name}</p>}
+              {(shop as any).contact_email && <p className="text-sm text-roast-500">{(shop as any).contact_email}</p>}
+              {(shop as any).contact_phone && <p className="text-sm text-roast-500">{(shop as any).contact_phone}</p>}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main page ────────────────────────────────────────────────────────────────
 export default function AdminDashboardPage() {
   const navigate = useNavigate();
+
   const [tab,        setTab]       = useState<Tab>('overview');
   const [shops,      setShops]     = useState<Shop[]>([]);
   const [equipment,  setEquipment] = useState<Equipment[]>([]);
@@ -33,12 +255,12 @@ export default function AdminDashboardPage() {
   const [reqFilter,  setReqFilter] = useState<RequestStatus | 'all'>('all');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
+  // Drawer / modal state
+  const [selectedShop, setSelectedShop]     = useState<Shop | null>(null);
+  const [editingEq,    setEditingEq]        = useState<Equipment | null>(null);
+
   const loadAll = async () => {
-    const [s, e, r] = await Promise.all([
-      getShops(),
-      getAllEquipment(),
-      getAllServiceRequests(),
-    ]);
+    const [s, e, r] = await Promise.all([getShops(), getAllEquipment(), getAllServiceRequests()]);
     setShops(s);
     setEquipment(e);
     setRequests(r);
@@ -52,6 +274,11 @@ export default function AdminDashboardPage() {
     await updateServiceRequestStatus(id, status);
     setRequests(prev => prev.map(r => r.id === id ? { ...r, status } : r));
     setUpdatingId(null);
+  };
+
+  const handleEquipmentSaved = (id: string, status: string) => {
+    setEquipment(prev => prev.map(e => e.id === id ? { ...e, status: status as any } : e));
+    setEditingEq(null);
   };
 
   const filteredEquipment = equipment.filter(e =>
@@ -73,39 +300,31 @@ export default function AdminDashboardPage() {
   const urgentEqCount = equipment.filter(e => e.status === 'urgent').length;
 
   const tabs: { id: Tab; label: string; count?: number }[] = [
-    { id: 'overview',  label: 'Overview'                    },
+    { id: 'overview',  label: 'Overview'                         },
     { id: 'equipment', label: 'Equipment', count: equipment.length },
-    { id: 'requests',  label: 'Requests',  count: openCount       },
+    { id: 'requests',  label: 'Requests',  count: openCount        },
   ];
 
   return (
     <main className="max-w-6xl mx-auto px-4 py-6 space-y-5">
 
-      {/* Header with action buttons */}
+      {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="page-title">Admin Dashboard</h1>
           <p className="page-subtitle">Gobena Service · Partner Operations</p>
         </div>
         <div className="flex gap-2 shrink-0">
-          <button
-            onClick={() => navigate('/admin/add-shop')}
-            className="btn-secondary text-xs py-2 px-3"
-          >
-            <Building2 size={13} />
-            Add Shop
+          <button onClick={() => navigate('/admin/add-shop')} className="btn-secondary text-xs py-2 px-3">
+            <Building2 size={13} /> Add Shop
           </button>
-          <button
-            onClick={() => navigate('/admin/add-equipment')}
-            className="btn-primary text-xs py-2 px-3"
-          >
-            <Plus size={13} />
-            Add Equipment
+          <button onClick={() => navigate('/admin/add-equipment')} className="btn-primary text-xs py-2 px-3">
+            <Plus size={13} /> Add Equipment
           </button>
         </div>
       </div>
 
-      {/* Top stats */}
+      {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { icon: Building2,     label: 'Partner Shops',    value: shops.length,     color: 'bg-roast-600' },
@@ -149,7 +368,7 @@ export default function AdminDashboardPage() {
         ))}
       </div>
 
-      {/* Search bar */}
+      {/* Search */}
       {(tab === 'equipment' || tab === 'requests') && (
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
@@ -182,49 +401,76 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
-      {/* ── OVERVIEW TAB ── */}
+      {/* ── OVERVIEW ── */}
       {tab === 'overview' && !loading && (
         <div className="space-y-5">
           <div>
             <h2 className="section-title mb-3">Partner Shops</h2>
             <div className="grid sm:grid-cols-3 gap-3">
               {shops.map(shop => {
-                const shopEquipment = equipment.filter(e => e.shop_id === shop.id);
-                const hasUrgent     = shopEquipment.some(e => e.status === 'urgent');
-                const shopRequests  = requests.filter(r =>
-                  r.shop_id === shop.id && (r.status === 'open' || r.status === 'in_progress')
-                );
+                const shopEq   = equipment.filter(e => e.shop_id === shop.id);
+                const hasUrgent = shopEq.some(e => e.status === 'urgent');
+                const openReqs  = requests.filter(r => r.shop_id === shop.id && (r.status === 'open' || r.status === 'in_progress'));
                 return (
-                  <div key={shop.id} className="card">
+                  <button
+                    key={shop.id}
+                    onClick={() => setSelectedShop(shop)}
+                    className="card text-left hover:shadow-warm hover:border-brew-200 transition-all cursor-pointer group border border-transparent"
+                  >
                     <div className="flex items-start justify-between">
                       <div>
-                        <h3 className="font-display font-medium text-bark">{shop.name}</h3>
+                        <h3 className="font-display font-medium text-bark group-hover:text-brew-700 transition-colors">
+                          {shop.name}
+                        </h3>
                         <p className="text-xs text-roast-400 mt-0.5">{shop.city}, {shop.state}</p>
                       </div>
-                      {hasUrgent && (
-                        <span className="badge bg-red-50 text-red-600 border border-red-200">
-                          <AlertTriangle size={10} /> Urgent
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1.5">
+                        {hasUrgent && (
+                          <span className="badge bg-red-50 text-red-600 border border-red-200">
+                            <AlertTriangle size={10} /> Urgent
+                          </span>
+                        )}
+                        <ChevronRight size={14} className="text-roast-300 group-hover:text-brew-500 transition-colors" />
+                      </div>
                     </div>
                     <div className="flex gap-4 mt-3 pt-3 border-t border-cream-100">
                       <div className="text-center">
-                        <p className="text-base font-bold text-bark">{shopEquipment.length}</p>
+                        <p className="text-base font-bold text-bark">{shopEq.length}</p>
                         <p className="text-xs text-roast-400">Equipment</p>
                       </div>
                       <div className="text-center">
-                        <p className="text-base font-bold text-bark">{shopRequests.length}</p>
+                        <p className="text-base font-bold text-bark">{openReqs.length}</p>
                         <p className="text-xs text-roast-400">Open Reqs</p>
                       </div>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
+
+              {/* Add shop card */}
+              <button
+                onClick={() => navigate('/admin/add-shop')}
+                className="card border-2 border-dashed border-cream-300 hover:border-brew-300 transition-colors flex flex-col items-center justify-center gap-2 py-8 text-roast-400 hover:text-brew-600 group"
+              >
+                <Plus size={20} className="group-hover:scale-110 transition-transform" />
+                <span className="text-sm font-medium">Add Partner Shop</span>
+              </button>
             </div>
           </div>
 
+          {/* Recent requests */}
           <div>
-            <h2 className="section-title mb-3">Recent Open Requests</h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="section-title">Recent Open Requests</h2>
+              {openCount > 0 && (
+                <button
+                  onClick={() => setTab('requests')}
+                  className="text-xs text-brew-600 font-medium hover:text-brew-800"
+                >
+                  View all →
+                </button>
+              )}
+            </div>
             {requests.filter(r => r.status === 'open').length === 0 ? (
               <div className="card text-center py-8 text-roast-400 text-sm">
                 No open requests. All good ✓
@@ -248,7 +494,7 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
-      {/* ── EQUIPMENT TAB ── */}
+      {/* ── EQUIPMENT ── */}
       {tab === 'equipment' && !loading && (
         <div className="space-y-2">
           {filteredEquipment.length === 0 ? (
@@ -256,23 +502,29 @@ export default function AdminDashboardPage() {
           ) : (
             <div className="card p-0 overflow-hidden divide-y divide-cream-100">
               {filteredEquipment.map(eq => (
-                <Link
-                  key={eq.id}
-                  to={`/equipment/${eq.id}`}
-                  className="flex items-center gap-4 px-5 py-3.5 hover:bg-cream-50/60 transition-colors group"
-                >
+                <div key={eq.id} className="flex items-center gap-4 px-5 py-3.5 hover:bg-cream-50/60">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-bark group-hover:text-brew-700 transition-colors">
-                      {eq.name}
-                    </p>
+                    <p className="text-sm font-medium text-bark">{eq.name}</p>
                     <p className="text-xs text-roast-400">
-                      {(eq.shops as any)?.name} · {eq.category}
-                      {eq.model ? ` · ${eq.model}` : ''}
+                      {(eq.shops as any)?.name} · {eq.category}{eq.model ? ` · ${eq.model}` : ''}
                     </p>
                   </div>
                   <StatusBadge status={eq.status} />
-                  <ChevronRight size={14} className="text-roast-300 shrink-0" />
-                </Link>
+                  <div className="flex gap-1.5 shrink-0">
+                    <button
+                      onClick={() => setEditingEq(eq)}
+                      className="text-xs px-2.5 py-1.5 rounded-lg bg-cream-100 text-roast-600 hover:bg-cream-200 border border-cream-200"
+                    >
+                      Edit
+                    </button>
+                    <Link
+                      to={`/equipment/${eq.id}`}
+                      className="text-xs px-2.5 py-1.5 rounded-lg bg-brew-50 text-brew-700 hover:bg-brew-100 border border-brew-200 flex items-center gap-1"
+                    >
+                      View <ChevronRight size={11} />
+                    </Link>
+                  </div>
+                </div>
               ))}
             </div>
           )}
@@ -282,7 +534,7 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
-      {/* ── REQUESTS TAB ── */}
+      {/* ── REQUESTS ── */}
       {tab === 'requests' && !loading && (
         <div className="space-y-2">
           {filteredRequests.length === 0 ? (
@@ -296,10 +548,7 @@ export default function AdminDashboardPage() {
                       <p className="text-sm font-medium text-bark">{req.issue_type}</p>
                       <p className="text-xs text-roast-400 mt-0.5">
                         {(req.shops as any)?.name} ·{' '}
-                        <Link
-                          to={`/equipment/${req.equipment_id}`}
-                          className="text-brew-600 hover:text-brew-800"
-                        >
+                        <Link to={`/equipment/${req.equipment_id}`} className="text-brew-600 hover:text-brew-800">
                           {(req.equipment as any)?.name}
                         </Link>
                         {' · '}{formatDate(req.created_at)}
@@ -346,6 +595,26 @@ export default function AdminDashboardPage() {
             <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
           </svg>
         </div>
+      )}
+
+      {/* Shop drawer */}
+      {selectedShop && (
+        <ShopDrawer
+          shop={selectedShop}
+          equipment={equipment}
+          requests={requests}
+          onClose={() => setSelectedShop(null)}
+          onEditEquipment={eq => { setSelectedShop(null); setEditingEq(eq); }}
+        />
+      )}
+
+      {/* Equipment status editor */}
+      {editingEq && (
+        <EquipmentStatusEditor
+          equipment={editingEq}
+          onClose={() => setEditingEq(null)}
+          onSaved={handleEquipmentSaved}
+        />
       )}
     </main>
   );
