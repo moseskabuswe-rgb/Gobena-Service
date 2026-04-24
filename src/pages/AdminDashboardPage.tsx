@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   getAllEquipment,
   getAllServiceRequests,
@@ -10,7 +11,7 @@ import { StatusBadge, RequestStatusBadge, PriorityBadge } from '../components/St
 import { Link } from 'react-router-dom';
 import {
   Building2, Wrench, ClipboardList, AlertTriangle,
-  ChevronRight, Search,
+  ChevronRight, Search, Plus,
 } from 'lucide-react';
 
 function formatDate(dateStr: string) {
@@ -22,13 +23,14 @@ function formatDate(dateStr: string) {
 type Tab = 'overview' | 'equipment' | 'requests';
 
 export default function AdminDashboardPage() {
-  const [tab,       setTab]       = useState<Tab>('overview');
-  const [shops,     setShops]     = useState<Shop[]>([]);
-  const [equipment, setEquipment] = useState<Equipment[]>([]);
-  const [requests,  setRequests]  = useState<ServiceRequest[]>([]);
-  const [loading,   setLoading]   = useState(true);
-  const [search,    setSearch]    = useState('');
-  const [reqFilter, setReqFilter] = useState<RequestStatus | 'all'>('all');
+  const navigate = useNavigate();
+  const [tab,        setTab]       = useState<Tab>('overview');
+  const [shops,      setShops]     = useState<Shop[]>([]);
+  const [equipment,  setEquipment] = useState<Equipment[]>([]);
+  const [requests,   setRequests]  = useState<ServiceRequest[]>([]);
+  const [loading,    setLoading]   = useState(true);
+  const [search,     setSearch]    = useState('');
+  const [reqFilter,  setReqFilter] = useState<RequestStatus | 'all'>('all');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   const loadAll = async () => {
@@ -71,26 +73,45 @@ export default function AdminDashboardPage() {
   const urgentEqCount = equipment.filter(e => e.status === 'urgent').length;
 
   const tabs: { id: Tab; label: string; count?: number }[] = [
-    { id: 'overview',  label: 'Overview'          },
+    { id: 'overview',  label: 'Overview'                    },
     { id: 'equipment', label: 'Equipment', count: equipment.length },
     { id: 'requests',  label: 'Requests',  count: openCount       },
   ];
 
   return (
     <main className="max-w-6xl mx-auto px-4 py-6 space-y-5">
-      {/* Header */}
-      <div>
-        <h1 className="page-title">Admin Dashboard</h1>
-        <p className="page-subtitle">Gobena Service · Partner Operations</p>
+
+      {/* Header with action buttons */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="page-title">Admin Dashboard</h1>
+          <p className="page-subtitle">Gobena Service · Partner Operations</p>
+        </div>
+        <div className="flex gap-2 shrink-0">
+          <button
+            onClick={() => navigate('/admin/add-shop')}
+            className="btn-secondary text-xs py-2 px-3"
+          >
+            <Building2 size={13} />
+            Add Shop
+          </button>
+          <button
+            onClick={() => navigate('/admin/add-equipment')}
+            className="btn-primary text-xs py-2 px-3"
+          >
+            <Plus size={13} />
+            Add Equipment
+          </button>
+        </div>
       </div>
 
       {/* Top stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { icon: Building2,     label: 'Partner Shops',    value: shops.length,     color: 'bg-roast-600'  },
-          { icon: Wrench,        label: 'Equipment Units',  value: equipment.length, color: 'bg-brew-600'   },
-          { icon: AlertTriangle, label: 'Urgent Equipment', value: urgentEqCount,    color: 'bg-red-500'    },
-          { icon: ClipboardList, label: 'Open Requests',    value: openCount,        color: 'bg-blue-500'   },
+          { icon: Building2,     label: 'Partner Shops',    value: shops.length,     color: 'bg-roast-600' },
+          { icon: Wrench,        label: 'Equipment Units',  value: equipment.length, color: 'bg-brew-600'  },
+          { icon: AlertTriangle, label: 'Urgent Equipment', value: urgentEqCount,    color: 'bg-red-500'   },
+          { icon: ClipboardList, label: 'Open Requests',    value: openCount,        color: 'bg-blue-500'  },
         ].map(stat => (
           <div key={stat.label} className="card flex items-center gap-3">
             <div className={`w-9 h-9 rounded-xl ${stat.color} flex items-center justify-center shrink-0`}>
@@ -128,7 +149,7 @@ export default function AdminDashboardPage() {
         ))}
       </div>
 
-      {/* Search bar (for equipment + requests tabs) */}
+      {/* Search bar */}
       {(tab === 'equipment' || tab === 'requests') && (
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
@@ -164,14 +185,15 @@ export default function AdminDashboardPage() {
       {/* ── OVERVIEW TAB ── */}
       {tab === 'overview' && !loading && (
         <div className="space-y-5">
-          {/* Shops grid */}
           <div>
             <h2 className="section-title mb-3">Partner Shops</h2>
             <div className="grid sm:grid-cols-3 gap-3">
               {shops.map(shop => {
                 const shopEquipment = equipment.filter(e => e.shop_id === shop.id);
                 const hasUrgent     = shopEquipment.some(e => e.status === 'urgent');
-                const shopRequests  = requests.filter(r => r.shop_id === shop.id && (r.status === 'open' || r.status === 'in_progress'));
+                const shopRequests  = requests.filter(r =>
+                  r.shop_id === shop.id && (r.status === 'open' || r.status === 'in_progress')
+                );
                 return (
                   <div key={shop.id} className="card">
                     <div className="flex items-start justify-between">
@@ -201,7 +223,6 @@ export default function AdminDashboardPage() {
             </div>
           </div>
 
-          {/* Recent requests */}
           <div>
             <h2 className="section-title mb-3">Recent Open Requests</h2>
             {requests.filter(r => r.status === 'open').length === 0 ? (
@@ -292,8 +313,6 @@ export default function AdminDashboardPage() {
                       <RequestStatusBadge status={req.status} />
                     </div>
                   </div>
-
-                  {/* Status updater */}
                   <div className="flex gap-1.5 mt-3 flex-wrap">
                     {(['open', 'in_progress', 'resolved', 'closed'] as RequestStatus[]).map(s => (
                       <button
