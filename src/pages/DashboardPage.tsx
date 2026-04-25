@@ -64,7 +64,6 @@ function RequestDrawer({
   onClose: () => void;
 }) {
   const equipment = request.equipment as any;
-  const shop      = request.shops      as any;
 
   const hasAnswers = request.diagnostic_answers &&
     Object.keys(request.diagnostic_answers).length > 0;
@@ -130,7 +129,7 @@ function RequestDrawer({
                 Attachments
               </p>
               <div className="flex flex-wrap gap-2">
-                {request.media_urls.map((url, i) => (
+                {request.media_urls.map((url: string, i: number) => (
                   <a
                     key={i}
                     href={url}

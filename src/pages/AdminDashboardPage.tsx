@@ -5,7 +5,7 @@ import {
   updateServiceRequestStatus, updateEquipmentStatus,
   insertTroubleshootEntry,
 } from '../lib/queries';
-import { supabase } from '../lib/supabaseClient';
+
 import type { Equipment, ServiceRequest, Shop, RequestStatus } from '../types';
 import { StatusBadge, RequestStatusBadge, PriorityBadge } from '../components/StatusBadge';
 import {

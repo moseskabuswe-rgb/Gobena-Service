@@ -86,7 +86,7 @@ function EntryCard({ entry }: { entry: TroubleshootEntry }) {
           {entry.tags && entry.tags.length > 0 && (
             <div className="flex items-center gap-2 flex-wrap">
               <Tag size={12} className="text-roast-400" />
-              {entry.tags.map(tag => (
+              {entry.tags.map((tag: string) => (
                 <span key={tag} className="text-xs bg-cream-100 text-roast-500 px-2 py-0.5 rounded-full">
                   {tag}
                 </span>
