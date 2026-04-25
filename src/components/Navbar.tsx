@@ -1,7 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext';
-import { LayoutGrid, Wrench, ShieldCheck, LogOut } from 'lucide-react';
-
+import { LayoutGrid, Wrench, ShieldCheck, LogOut, Coffee, BookOpen } from 'lucide-react';
 
 export default function Navbar() {
   const { profile, signOut } = useAuth();
@@ -35,13 +34,12 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-sm border-b border-cream-200 shadow-sm">
       <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
+
         {/* Logo */}
-        <Link to={isAdmin ? '/admin' : '/dashboard'} className="flex items-center gap-2.5 shrink-0">
-          <img
-            src="/favicon.png"
-            alt="Gobena Coffee"
-            className="w-7 h-7 rounded-lg object-cover"
-          />
+        <Link to={isAdmin ? '/admin' : '/dashboard'} className="flex items-center gap-2 shrink-0">
+          <div className="w-7 h-7 rounded-lg bg-brew-700 flex items-center justify-center">
+            <Coffee size={14} className="text-cream-100" />
+          </div>
           <span className="font-display font-semibold text-bark text-base tracking-tight">
             Gobena <span className="text-brew-500">Service</span>
           </span>
@@ -53,8 +51,9 @@ export default function Navbar() {
             navLink('/admin', 'Admin', ShieldCheck)
           ) : (
             <>
-              {navLink('/dashboard', 'Dashboard', LayoutGrid)}
-              {navLink('/equipment', 'Equipment', Wrench)}
+              {navLink('/dashboard',    'Dashboard',    LayoutGrid)}
+              {navLink('/equipment',    'Equipment',    Wrench)}
+              {navLink('/troubleshoot', 'Troubleshoot', BookOpen)}
             </>
           )}
         </nav>
@@ -75,6 +74,7 @@ export default function Navbar() {
             <LogOut size={16} />
           </button>
         </div>
+
       </div>
     </header>
   );
