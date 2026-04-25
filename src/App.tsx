@@ -1,15 +1,17 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './lib/AuthContext';
-import LoginPage               from './pages/LoginPage';
-import SignupPage              from './pages/SignupPage';
-import DashboardPage           from './pages/DashboardPage';
-import EquipmentListPage       from './pages/EquipmentListPage';
-import EquipmentDetailPage     from './pages/EquipmentDetailPage';
-import AdminDashboardPage      from './pages/AdminDashboardPage';
-import AdminAddEquipmentPage   from './pages/AdminAddEquipmentPage';
-import AdminAddShopPage        from './pages/AdminAddShopPage';
-import QRPrintPage             from './pages/QRPrintPage';
-import Navbar                  from './components/Navbar';
+
+import LoginPage           from './pages/LoginPage';
+import SignupPage          from './pages/SignupPage';
+import DashboardPage       from './pages/DashboardPage';
+import EquipmentListPage   from './pages/EquipmentListPage';
+import EquipmentDetailPage from './pages/EquipmentDetailPage';
+import AdminDashboardPage  from './pages/AdminDashboardPage';
+import QRPrintPage         from './pages/QRPrintPage';
+import TroubleshootPage    from './pages/TroubleshootPage';
+import AdminAddShopPage    from './pages/AdminAddShopPage';
+import AdminAddEquipmentPage from './pages/AdminAddEquipmentPage';
+import Navbar              from './components/Navbar';
 
 function LoadingScreen() {
   return (
@@ -45,30 +47,38 @@ function RequireAdmin({ children }: { children: JSX.Element }) {
 
 function AppRoutes() {
   const { user, profile } = useAuth();
+  const location = useLocation();
+
   const defaultPath = user
     ? (profile?.role === 'admin' ? '/admin' : '/dashboard')
     : '/login';
 
-  const location = useLocation();
+  // Hide navbar on QR print page
   const isPrintPage = location.pathname.endsWith('/qr');
 
   return (
     <div className="min-h-screen bg-foam">
       {user && !isPrintPage && <Navbar />}
       <Routes>
+        {/* Public */}
         <Route path="/login"  element={user ? <Navigate to={defaultPath} /> : <LoginPage />} />
         <Route path="/signup" element={user ? <Navigate to={defaultPath} /> : <SignupPage />} />
 
+        {/* Partner routes */}
         <Route path="/dashboard"     element={<RequireAuth><DashboardPage /></RequireAuth>} />
         <Route path="/equipment"     element={<RequireAuth><EquipmentListPage /></RequireAuth>} />
         <Route path="/equipment/:id" element={<RequireAuth><EquipmentDetailPage /></RequireAuth>} />
+        <Route path="/troubleshoot"  element={<RequireAuth><TroubleshootPage /></RequireAuth>} />
 
+        {/* QR print — admin only, opens in new tab */}
         <Route path="/equipment/:id/qr" element={<RequireAdmin><QRPrintPage /></RequireAdmin>} />
 
-        <Route path="/admin"               element={<RequireAdmin><AdminDashboardPage /></RequireAdmin>} />
-        <Route path="/admin/add-equipment" element={<RequireAdmin><AdminAddEquipmentPage /></RequireAdmin>} />
-        <Route path="/admin/add-shop"      element={<RequireAdmin><AdminAddShopPage /></RequireAdmin>} />
+        {/* Admin routes */}
+        <Route path="/admin"                element={<RequireAdmin><AdminDashboardPage /></RequireAdmin>} />
+        <Route path="/admin/add-shop"       element={<RequireAdmin><AdminAddShopPage /></RequireAdmin>} />
+        <Route path="/admin/add-equipment"  element={<RequireAdmin><AdminAddEquipmentPage /></RequireAdmin>} />
 
+        {/* Catch-all */}
         <Route path="*" element={<Navigate to={defaultPath} replace />} />
       </Routes>
     </div>
