@@ -5,9 +5,11 @@ import type {
   ServiceRequest,
   Shop,
   Profile,
+  TroubleshootEntry,
+  RequestStatus,
 } from '../types';
 
-// ─── PROFILE ─────────────────────────────────────────────────
+// ─── PROFILE ────────────────────────────────────────────────────────────────
 
 export async function getProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
@@ -33,7 +35,7 @@ export async function updateProfile(
   return data;
 }
 
-// ─── SHOPS ───────────────────────────────────────────────────
+// ─── SHOPS ──────────────────────────────────────────────────────────────────
 
 export async function getShops(): Promise<Shop[]> {
   const { data, error } = await supabase
@@ -54,7 +56,7 @@ export async function getShop(shopId: string): Promise<Shop | null> {
   return data;
 }
 
-// ─── EQUIPMENT ───────────────────────────────────────────────
+// ─── EQUIPMENT ──────────────────────────────────────────────────────────────
 
 export async function getEquipmentByShop(shopId: string): Promise<Equipment[]> {
   const { data, error } = await supabase
@@ -87,21 +89,19 @@ export async function getEquipmentById(id: string): Promise<Equipment | null> {
 
 export async function updateEquipmentStatus(
   id: string,
-  status: Equipment['status']
+  status: Equipment['status'],
+  notes?: string
 ): Promise<boolean> {
-  const { error } = await supabase
-    .from('equipment')
-    .update({ status })
-    .eq('id', id);
+  const update: Record<string, unknown> = { status, last_service: new Date().toISOString().slice(0, 10) };
+  if (notes !== undefined) update.notes = notes;
+  const { error } = await supabase.from('equipment').update(update).eq('id', id);
   if (error) { console.error(error); return false; }
   return true;
 }
 
-// ─── MAINTENANCE LOGS ────────────────────────────────────────
+// ─── MAINTENANCE LOGS ───────────────────────────────────────────────────────
 
-export async function getMaintenanceLogs(
-  equipmentId: string
-): Promise<MaintenanceLog[]> {
+export async function getMaintenanceLogs(equipmentId: string): Promise<MaintenanceLog[]> {
   const { data, error } = await supabase
     .from('maintenance_logs')
     .select('*')
@@ -126,18 +126,16 @@ export async function insertMaintenanceLog(log: {
   return data;
 }
 
-// ─── SERVICE REQUESTS ────────────────────────────────────────
+// ─── SERVICE REQUESTS ───────────────────────────────────────────────────────
 
-export async function getServiceRequestsByShop(
-  shopId: string
-): Promise<ServiceRequest[]> {
+export async function getServiceRequestsByShop(shopId: string): Promise<ServiceRequest[]> {
   const { data, error } = await supabase
     .from('service_requests')
-    .select('*, equipment(name, category), shops(name)')
+    .select('*, equipment(name, category, model), shops(name)')
     .eq('shop_id', shopId)
     .order('created_at', { ascending: false });
   if (error) { console.error(error); return []; }
-  return data ?? [];
+  return (data ?? []).map(normalizeRequest);
 }
 
 export async function getAllServiceRequests(): Promise<ServiceRequest[]> {
@@ -146,7 +144,29 @@ export async function getAllServiceRequests(): Promise<ServiceRequest[]> {
     .select('*, equipment(name, category, model), shops(name, city)')
     .order('created_at', { ascending: false });
   if (error) { console.error(error); return []; }
-  return data ?? [];
+  return (data ?? []).map(normalizeRequest);
+}
+
+export async function getServiceRequestById(id: string): Promise<ServiceRequest | null> {
+  const { data, error } = await supabase
+    .from('service_requests')
+    .select('*, equipment(name, category, model, shop_id), shops(name, city)')
+    .eq('id', id)
+    .single();
+  if (error) { console.error(error); return null; }
+  return normalizeRequest(data);
+}
+
+// Ensures new columns have defaults even on old rows
+function normalizeRequest(r: Record<string, unknown>): ServiceRequest {
+  return {
+    ...r,
+    media_urls:          (r.media_urls as string[])                     ?? [],
+    diagnostic_answers:  (r.diagnostic_answers as Record<string,string>) ?? {},
+    ai_summary:          (r.ai_summary as string | null)                 ?? null,
+    resolution_notes:    (r.resolution_notes as string | null)           ?? null,
+    resolved_at:         (r.resolved_at as string | null)                ?? null,
+  } as ServiceRequest;
 }
 
 export async function insertServiceRequest(req: {
@@ -156,24 +176,103 @@ export async function insertServiceRequest(req: {
   issue_type: string;
   notes: string;
   priority: ServiceRequest['priority'];
+  media_urls?: string[];
+  diagnostic_answers?: Record<string, string>;
+  ai_summary?: string;
 }): Promise<ServiceRequest | null> {
   const { data, error } = await supabase
     .from('service_requests')
-    .insert(req)
+    .insert({
+      ...req,
+      media_urls:         req.media_urls         ?? [],
+      diagnostic_answers: req.diagnostic_answers ?? {},
+      ai_summary:         req.ai_summary         ?? null,
+    })
     .select()
     .single();
   if (error) { console.error(error); return null; }
-  return data;
+  return normalizeRequest(data);
 }
 
 export async function updateServiceRequestStatus(
   id: string,
-  status: ServiceRequest['status']
+  status: ServiceRequest['status'],
+  resolutionNotes?: string
 ): Promise<boolean> {
-  const { error } = await supabase
-    .from('service_requests')
-    .update({ status, updated_at: new Date().toISOString() })
-    .eq('id', id);
+  const update: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
+  if (resolutionNotes !== undefined) update.resolution_notes = resolutionNotes;
+  const { error } = await supabase.from('service_requests').update(update).eq('id', id);
   if (error) { console.error(error); return false; }
   return true;
+}
+
+// ─── MEDIA UPLOAD ───────────────────────────────────────────────────────────
+
+export async function uploadServiceMedia(
+  file: File,
+  requestId: string
+): Promise<string | null> {
+  const ext  = file.name.split('.').pop();
+  const path = `${requestId}/${Date.now()}.${ext}`;
+
+  const { error } = await supabase.storage
+    .from('service-media')
+    .upload(path, file, { upsert: false });
+
+  if (error) { console.error('Upload error:', error); return null; }
+
+  // Return a signed URL valid for 7 days (172800s = 48h, 604800s = 7d)
+  const { data: signed } = await supabase.storage
+    .from('service-media')
+    .createSignedUrl(path, 604800);
+
+  return signed?.signedUrl ?? null;
+}
+
+// ─── TROUBLESHOOT LIBRARY ───────────────────────────────────────────────────
+
+export async function getTroubleshootEntries(opts?: {
+  shopId?: string;
+  category?: string;
+  search?: string;
+}): Promise<TroubleshootEntry[]> {
+  let query = supabase
+    .from('troubleshoot_library')
+    .select('*, equipment(name, category, model), shops(name)')
+    .order('created_at', { ascending: false });
+
+  if (opts?.category) query = query.eq('equipment_category', opts.category);
+  if (opts?.search) {
+    query = query.or(
+      `problem_description.ilike.%${opts.search}%,resolution_steps.ilike.%${opts.search}%,issue_type.ilike.%${opts.search}%`
+    );
+  }
+
+  const { data, error } = await query;
+  if (error) { console.error(error); return []; }
+  return data ?? [];
+}
+
+export async function insertTroubleshootEntry(entry: {
+  service_request_id?: string;
+  equipment_id?: string;
+  shop_id?: string;
+  issue_type: string;
+  equipment_category: string;
+  equipment_model?: string;
+  problem_description: string;
+  resolution_steps: string;
+  root_cause?: string;
+  parts_replaced?: string;
+  is_public?: boolean;
+  tags?: string[];
+  created_by?: string;
+}): Promise<TroubleshootEntry | null> {
+  const { data, error } = await supabase
+    .from('troubleshoot_library')
+    .insert(entry)
+    .select()
+    .single();
+  if (error) { console.error(error); return null; }
+  return data;
 }
