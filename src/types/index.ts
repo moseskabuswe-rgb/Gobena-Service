@@ -14,12 +14,17 @@ export interface Shop {
   address: string | null;
   city: string | null;
   state: string | null;
+  zip: string | null;
   phone: string | null;
   email: string | null;
+  contact_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  notes: string | null;
   created_at: string;
 }
 
-export type EquipmentStatus = 'good' | 'needs_attention' | 'urgent';
+export type EquipmentStatus   = 'good' | 'needs_attention' | 'urgent';
 export type EquipmentCategory =
   | 'Espresso Machine'
   | 'Grinder'
@@ -55,7 +60,7 @@ export interface MaintenanceLog {
   created_at: string;
 }
 
-export type RequestStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
+export type RequestStatus   = 'open' | 'in_progress' | 'resolved' | 'closed';
 export type RequestPriority = 'low' | 'normal' | 'high' | 'urgent';
 
 export interface ServiceRequest {
@@ -67,6 +72,32 @@ export interface ServiceRequest {
   notes: string | null;
   status: RequestStatus;
   priority: RequestPriority;
+  media_urls: string[];
+  diagnostic_answers: Record<string, string>;
+  ai_summary: string | null;
+  resolution_notes: string | null;
+  resolved_at: string | null;
+  created_at: string;
+  updated_at: string;
+  equipment?: Equipment;
+  shops?: Shop;
+}
+
+export interface TroubleshootEntry {
+  id: string;
+  service_request_id: string | null;
+  equipment_id: string | null;
+  shop_id: string | null;
+  issue_type: string;
+  equipment_category: string;
+  equipment_model: string | null;
+  problem_description: string;
+  resolution_steps: string;
+  root_cause: string | null;
+  parts_replaced: string | null;
+  is_public: boolean;
+  tags: string[];
+  created_by: string | null;
   created_at: string;
   updated_at: string;
   equipment?: Equipment;
