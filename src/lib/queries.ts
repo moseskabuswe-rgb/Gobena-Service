@@ -6,7 +6,6 @@ import type {
   Shop,
   Profile,
   TroubleshootEntry,
-  RequestStatus,
 } from '../types';
 
 // ─── PROFILE ────────────────────────────────────────────────────────────────
@@ -92,7 +91,10 @@ export async function updateEquipmentStatus(
   status: Equipment['status'],
   notes?: string
 ): Promise<boolean> {
-  const update: Record<string, unknown> = { status, last_service: new Date().toISOString().slice(0, 10) };
+  const update: Record<string, unknown> = {
+    status,
+    last_service: new Date().toISOString().slice(0, 10),
+  };
   if (notes !== undefined) update.notes = notes;
   const { error } = await supabase.from('equipment').update(update).eq('id', id);
   if (error) { console.error(error); return false; }
@@ -128,6 +130,29 @@ export async function insertMaintenanceLog(log: {
 
 // ─── SERVICE REQUESTS ───────────────────────────────────────────────────────
 
+// Ensures rows from before the v3 patch have safe defaults for new columns
+function normalizeRequest(r: Record<string, unknown>): ServiceRequest {
+  return {
+    id:                  r.id                  as string,
+    equipment_id:        r.equipment_id        as string,
+    shop_id:             r.shop_id             as string,
+    requested_by:        r.requested_by        as string | null,
+    issue_type:          r.issue_type          as string,
+    notes:               r.notes               as string | null,
+    status:              r.status              as ServiceRequest['status'],
+    priority:            r.priority            as ServiceRequest['priority'],
+    media_urls:          (r.media_urls         as string[]                      ) ?? [],
+    diagnostic_answers:  (r.diagnostic_answers as Record<string, string>        ) ?? {},
+    ai_summary:          (r.ai_summary         as string | null                 ) ?? null,
+    resolution_notes:    (r.resolution_notes   as string | null                 ) ?? null,
+    resolved_at:         (r.resolved_at        as string | null                 ) ?? null,
+    created_at:          r.created_at          as string,
+    updated_at:          r.updated_at          as string,
+    equipment:           r.equipment           as Equipment | undefined,
+    shops:               r.shops               as Shop | undefined,
+  };
+}
+
 export async function getServiceRequestsByShop(shopId: string): Promise<ServiceRequest[]> {
   const { data, error } = await supabase
     .from('service_requests')
@@ -157,18 +182,6 @@ export async function getServiceRequestById(id: string): Promise<ServiceRequest 
   return normalizeRequest(data);
 }
 
-// Ensures new columns have defaults even on old rows
-function normalizeRequest(r: Record<string, unknown>): ServiceRequest {
-  return {
-    ...r,
-    media_urls:          (r.media_urls as string[])                     ?? [],
-    diagnostic_answers:  (r.diagnostic_answers as Record<string,string>) ?? {},
-    ai_summary:          (r.ai_summary as string | null)                 ?? null,
-    resolution_notes:    (r.resolution_notes as string | null)           ?? null,
-    resolved_at:         (r.resolved_at as string | null)                ?? null,
-  } as ServiceRequest;
-}
-
 export async function insertServiceRequest(req: {
   equipment_id: string;
   shop_id: string;
@@ -183,7 +196,12 @@ export async function insertServiceRequest(req: {
   const { data, error } = await supabase
     .from('service_requests')
     .insert({
-      ...req,
+      equipment_id:       req.equipment_id,
+      shop_id:            req.shop_id,
+      requested_by:       req.requested_by,
+      issue_type:         req.issue_type,
+      notes:              req.notes,
+      priority:           req.priority,
       media_urls:         req.media_urls         ?? [],
       diagnostic_answers: req.diagnostic_answers ?? {},
       ai_summary:         req.ai_summary         ?? null,
@@ -199,7 +217,10 @@ export async function updateServiceRequestStatus(
   status: ServiceRequest['status'],
   resolutionNotes?: string
 ): Promise<boolean> {
-  const update: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
+  const update: Record<string, unknown> = {
+    status,
+    updated_at: new Date().toISOString(),
+  };
   if (resolutionNotes !== undefined) update.resolution_notes = resolutionNotes;
   const { error } = await supabase.from('service_requests').update(update).eq('id', id);
   if (error) { console.error(error); return false; }
@@ -221,10 +242,9 @@ export async function uploadServiceMedia(
 
   if (error) { console.error('Upload error:', error); return null; }
 
-  // Return a signed URL valid for 7 days (172800s = 48h, 604800s = 7d)
   const { data: signed } = await supabase.storage
     .from('service-media')
-    .createSignedUrl(path, 604800);
+    .createSignedUrl(path, 604800); // 7-day signed URL
 
   return signed?.signedUrl ?? null;
 }
@@ -232,7 +252,6 @@ export async function uploadServiceMedia(
 // ─── TROUBLESHOOT LIBRARY ───────────────────────────────────────────────────
 
 export async function getTroubleshootEntries(opts?: {
-  shopId?: string;
   category?: string;
   search?: string;
 }): Promise<TroubleshootEntry[]> {
@@ -241,7 +260,9 @@ export async function getTroubleshootEntries(opts?: {
     .select('*, equipment(name, category, model), shops(name)')
     .order('created_at', { ascending: false });
 
-  if (opts?.category) query = query.eq('equipment_category', opts.category);
+  if (opts?.category) {
+    query = query.eq('equipment_category', opts.category);
+  }
   if (opts?.search) {
     query = query.or(
       `problem_description.ilike.%${opts.search}%,resolution_steps.ilike.%${opts.search}%,issue_type.ilike.%${opts.search}%`
