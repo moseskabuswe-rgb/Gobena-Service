@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getEquipmentById, getMaintenanceLogs } from '../lib/queries';
 import type { Equipment, MaintenanceLog } from '../types';
 import { StatusBadge } from '../components/StatusBadge';
-import IssueForm from '../components/IssueForm';
+import GuidedIssueForm from '../components/GuidedIssueForm';
 import ServiceRequestForm from '../components/ServiceRequestForm';
 import QRCode from '../components/QRCode';
 import { useAuth } from '../lib/AuthContext';
@@ -29,16 +29,16 @@ function formatDateTime(dateStr: string): string {
 const LOG_TYPE_CONFIG: Record<MaintenanceLog['log_type'], {
   label: string; color: string; icon: React.ElementType
 }> = {
-  maintenance: { label: 'Maintenance', color: 'bg-brew-100 text-brew-700 border-brew-200',          icon: Wrench       },
-  repair:      { label: 'Repair',      color: 'bg-red-50 text-red-600 border-red-200',              icon: AlertCircle  },
-  inspection:  { label: 'Inspection',  color: 'bg-blue-50 text-blue-600 border-blue-200',           icon: CheckCircle  },
-  install:     { label: 'Install',     color: 'bg-emerald-50 text-emerald-700 border-emerald-200',  icon: Zap          },
+  maintenance: { label: 'Maintenance', color: 'bg-brew-100 text-brew-700 border-brew-200',         icon: Wrench       },
+  repair:      { label: 'Repair',      color: 'bg-red-50 text-red-600 border-red-200',             icon: AlertCircle  },
+  inspection:  { label: 'Inspection',  color: 'bg-blue-50 text-blue-600 border-blue-200',          icon: CheckCircle  },
+  install:     { label: 'Install',     color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: Zap          },
 };
 
 export default function EquipmentDetailPage() {
-  const { id }    = useParams<{ id: string }>();
+  const { id }      = useParams<{ id: string }>();
   const { profile } = useAuth();
-  const navigate  = useNavigate();
+  const navigate    = useNavigate();
 
   const [equipment, setEquipment] = useState<Equipment | null>(null);
   const [logs,      setLogs]      = useState<MaintenanceLog[]>([]);
@@ -47,9 +47,7 @@ export default function EquipmentDetailPage() {
   const [showLog,   setShowLog]   = useState(false);
   const [showQR,    setShowQR]    = useState(false);
 
-  const isAdmin = profile?.role === 'admin';
-
-  // The canonical URL for this equipment — this is what the QR code encodes
+  const isAdmin      = profile?.role === 'admin';
   const equipmentUrl = `${window.location.origin}/equipment/${id}`;
 
   const loadData = async () => {
@@ -265,9 +263,9 @@ export default function EquipmentDetailPage() {
         )}
       </section>
 
-      {/* Modals */}
+      {/* Modals — GuidedIssueForm replaces old IssueForm */}
       {showIssue && (
-        <IssueForm
+        <GuidedIssueForm
           equipment={equipment}
           onClose={() => setShowIssue(false)}
           onSuccess={() => { setShowIssue(false); loadData(); }}
