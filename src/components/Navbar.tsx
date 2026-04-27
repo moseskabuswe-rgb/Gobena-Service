@@ -1,6 +1,39 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext';
-import { LayoutGrid, Wrench, ShieldCheck, LogOut, Coffee, BookOpen } from 'lucide-react';
+import { LayoutGrid, Wrench, ShieldCheck, LogOut, BookOpen } from 'lucide-react';
+
+// Clean GO mark — black square, white italic serif lettermark
+function GoMark({ size = 28 }: { size?: number }) {
+  const r = Math.round(size * 0.22); // corner radius scales with size
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 32 32"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-label="Gobena Service"
+    >
+      <rect width="32" height="32" rx={r} fill="#1a0e06"/>
+      {/* Subtle top rule */}
+      <rect x="6" y="7" width="20" height="1.5" rx="0.75" fill="white" opacity="0.2"/>
+      {/* GO lettermark — italic serif, tight kerning */}
+      <text
+        x="16"
+        y="23"
+        fontFamily="Georgia, 'Times New Roman', serif"
+        fontSize="16"
+        fontWeight="700"
+        fontStyle="italic"
+        fill="white"
+        textAnchor="middle"
+        letterSpacing="-0.5"
+      >
+        GO
+      </text>
+    </svg>
+  );
+}
 
 export default function Navbar() {
   const { profile, signOut } = useAuth();
@@ -36,13 +69,19 @@ export default function Navbar() {
       <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
 
         {/* Logo */}
-        <Link to={isAdmin ? '/admin' : '/dashboard'} className="flex items-center gap-2 shrink-0">
-          <div className="w-7 h-7 rounded-lg bg-brew-700 flex items-center justify-center">
-            <Coffee size={14} className="text-cream-100" />
+        <Link
+          to={isAdmin ? '/admin' : '/dashboard'}
+          className="flex items-center gap-2.5 shrink-0 group"
+        >
+          <GoMark size={30} />
+          <div className="flex items-baseline gap-0.5">
+            <span className="font-display font-semibold text-bark text-base tracking-tight">
+              Gobena
+            </span>
+            <span className="font-display font-light text-roast-400 text-base tracking-tight ml-1">
+              Service
+            </span>
           </div>
-          <span className="font-display font-semibold text-bark text-base tracking-tight">
-            Gobena <span className="text-brew-500">Service</span>
-          </span>
         </Link>
 
         {/* Nav */}
