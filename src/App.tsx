@@ -1,17 +1,16 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './lib/AuthContext';
-
-import LoginPage           from './pages/LoginPage';
-import SignupPage          from './pages/SignupPage';
-import DashboardPage       from './pages/DashboardPage';
-import EquipmentListPage   from './pages/EquipmentListPage';
-import EquipmentDetailPage from './pages/EquipmentDetailPage';
-import AdminDashboardPage  from './pages/AdminDashboardPage';
-import QRPrintPage         from './pages/QRPrintPage';
-import TroubleshootPage    from './pages/TroubleshootPage';
-import AdminAddShopPage    from './pages/AdminAddShopPage';
+import LoginPage             from './pages/LoginPage';
+import SignupPage            from './pages/SignupPage';
+import DashboardPage         from './pages/DashboardPage';
+import EquipmentListPage     from './pages/EquipmentListPage';
+import EquipmentDetailPage   from './pages/EquipmentDetailPage';
+import AdminDashboardPage    from './pages/AdminDashboardPage';
+import QRPrintPage           from './pages/QRPrintPage';
+import TroubleshootPage      from './pages/TroubleshootPage';
+import AdminAddShopPage      from './pages/AdminAddShopPage';
 import AdminAddEquipmentPage from './pages/AdminAddEquipmentPage';
-import Navbar              from './components/Navbar';
+import Navbar                from './components/Navbar';
 
 function LoadingScreen() {
   return (
@@ -39,30 +38,53 @@ function RequireAuth({ children }: { children: JSX.Element }) {
 }
 
 function RequireAdmin({ children }: { children: JSX.Element }) {
-  const { profile, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
+
+  // Still loading auth state — wait
   if (loading) return <LoadingScreen />;
-  if (profile?.role !== 'admin') return <Navigate to="/dashboard" replace />;
+
+  // Not logged in at all
+  if (!user) return <Navigate to="/login" replace />;
+
+  // Logged in but profile not loaded yet — keep waiting
+  // This is the key fix: profile can be null for a few seconds after login
+  // while fetchProfileWithRetry is still retrying — don't redirect yet
+  if (!profile) return <LoadingScreen />;
+
+  // Profile loaded but not admin
+  if (profile.role !== 'admin') return <Navigate to="/dashboard" replace />;
+
   return children;
 }
 
 function AppRoutes() {
-  const { user, profile } = useAuth();
+  const { user, profile, loading } = useAuth();
   const location = useLocation();
 
-  const defaultPath = user
-    ? (profile?.role === 'admin' ? '/admin' : '/dashboard')
-    : '/login';
-
-  // Hide navbar on QR print page
   const isPrintPage = location.pathname.endsWith('/qr');
+
+  // Don't compute defaultPath until we know the profile
+  // If profile is still loading, show loading screen instead of redirecting
+  const getDefaultPath = () => {
+    if (!user) return '/login';
+    if (!profile) return null; // still loading
+    return profile.role === 'admin' ? '/admin' : '/dashboard';
+  };
+
+  const defaultPath = getDefaultPath();
+
+  // If user is logged in but profile hasn't resolved yet, show loading
+  if (user && !profile && loading) return <LoadingScreen />;
+
+  const resolvedDefault = defaultPath ?? '/dashboard';
 
   return (
     <div className="min-h-screen bg-foam">
       {user && !isPrintPage && <Navbar />}
       <Routes>
         {/* Public */}
-        <Route path="/login"  element={user ? <Navigate to={defaultPath} /> : <LoginPage />} />
-        <Route path="/signup" element={user ? <Navigate to={defaultPath} /> : <SignupPage />} />
+        <Route path="/login"  element={user && defaultPath ? <Navigate to={resolvedDefault} /> : <LoginPage />} />
+        <Route path="/signup" element={user && defaultPath ? <Navigate to={resolvedDefault} /> : <SignupPage />} />
 
         {/* Partner routes */}
         <Route path="/dashboard"     element={<RequireAuth><DashboardPage /></RequireAuth>} />
@@ -70,16 +92,16 @@ function AppRoutes() {
         <Route path="/equipment/:id" element={<RequireAuth><EquipmentDetailPage /></RequireAuth>} />
         <Route path="/troubleshoot"  element={<RequireAuth><TroubleshootPage /></RequireAuth>} />
 
-        {/* QR print — admin only, opens in new tab */}
+        {/* QR print — admin only */}
         <Route path="/equipment/:id/qr" element={<RequireAdmin><QRPrintPage /></RequireAdmin>} />
 
         {/* Admin routes */}
-        <Route path="/admin"                element={<RequireAdmin><AdminDashboardPage /></RequireAdmin>} />
-        <Route path="/admin/add-shop"       element={<RequireAdmin><AdminAddShopPage /></RequireAdmin>} />
-        <Route path="/admin/add-equipment"  element={<RequireAdmin><AdminAddEquipmentPage /></RequireAdmin>} />
+        <Route path="/admin"               element={<RequireAdmin><AdminDashboardPage /></RequireAdmin>} />
+        <Route path="/admin/add-shop"      element={<RequireAdmin><AdminAddShopPage /></RequireAdmin>} />
+        <Route path="/admin/add-equipment" element={<RequireAdmin><AdminAddEquipmentPage /></RequireAdmin>} />
 
-        {/* Catch-all */}
-        <Route path="*" element={<Navigate to={defaultPath} replace />} />
+        {/* Catch-all — wait for profile before redirecting */}
+        <Route path="*" element={<Navigate to={resolvedDefault} replace />} />
       </Routes>
     </div>
   );
