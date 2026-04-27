@@ -1,28 +1,19 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  ReactNode,
-} from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from './supabaseClient';
-import { getProfile } from './queries';
 import type { Profile } from '../types';
 
 interface AuthContextValue {
-  user:    User | null;
-  profile: Profile | null;
-  loading: boolean;
-  signOut: () => Promise<void>;
+  user:           User | null;
+  profile:        Profile | null;
+  loading:        boolean;
+  signOut:        () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue>({
-  user:           null,
-  profile:        null,
-  loading:        true,
-  signOut:        async () => {},
+  user: null, profile: null, loading: true,
+  signOut: async () => {},
   refreshProfile: async () => {},
 });
 
@@ -33,14 +24,20 @@ async function fetchProfileWithRetry(
   delayMs  = 700
 ): Promise<Profile | null> {
   for (let i = 0; i < attempts; i++) {
-    const profile = await getProfile(userId);
-    if (profile) return profile;
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, full_name, role, shop_id, created_at')  // explicit columns — no extras
+      .eq('id', userId)
+      .single();
+
+    if (data) return data as Profile;
+    if (error) console.warn(`Profile fetch attempt ${i + 1}:`, error.message);
     if (i < attempts - 1) await new Promise(r => setTimeout(r, delayMs));
   }
   return null;
 }
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user,    setUser]    = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -90,6 +87,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useAuth() {
-  return useContext(AuthContext);
-}
+export const useAuth = () => useContext(AuthContext);
