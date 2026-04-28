@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { X, Send, Sparkles, ImagePlus, Trash2, ChevronRight, ChevronLeft } from 'lucide-react';
+import { X, Send, ImagePlus, Trash2, ChevronRight, ChevronLeft } from 'lucide-react';
 import { insertServiceRequest, uploadServiceMedia } from '../lib/queries';
 import { useAuth } from '../lib/AuthContext';
 import type { Equipment, RequestPriority } from '../types';
@@ -10,7 +10,6 @@ interface GuidedIssueFormProps {
   onSuccess: () => void;
 }
 
-// ─── Dynamic question banks by issue type ──────────────────────────────────
 const ISSUE_TYPES = [
   'Not Brewing / Not Working',
   'Pressure Issue',
@@ -28,62 +27,61 @@ const ISSUE_TYPES = [
 const DIAGNOSTIC_QUESTIONS: Record<string, { id: string; label: string; placeholder?: string }[]> = {
   'Pressure Issue': [
     { id: 'pressure_reading', label: 'What pressure are you seeing on the gauge?', placeholder: 'e.g. 7 bar instead of 9 bar' },
-    { id: 'when_drops', label: 'When does the pressure drop? (e.g. mid-pull, immediately, after warm-up)', placeholder: 'Describe the timing...' },
+    { id: 'when_drops', label: 'When does the pressure drop?', placeholder: 'e.g. mid-pull, immediately, after warm-up' },
     { id: 'how_often', label: 'How frequently does this happen?', placeholder: 'e.g. every 3-4 shots, constantly, intermittently' },
   ],
   'Temperature Issue': [
-    { id: 'symptom', label: 'Is the machine too hot, too cold, or inconsistent?', placeholder: 'e.g. shots taste sour (under-extracted), or bitter (over-extracted)' },
+    { id: 'symptom', label: 'Is the machine too hot, too cold, or inconsistent?', placeholder: 'e.g. shots taste sour or bitter' },
     { id: 'warmup', label: 'Has the machine had full warm-up time (30+ min)?', placeholder: 'Yes / No / Unsure' },
-    { id: 'shot_temp', label: 'What does the espresso feel like when you pull a shot?', placeholder: 'e.g. lukewarm, scalding, seems fine but tastes off' },
+    { id: 'shot_temp', label: 'What does the espresso feel like when pulled?', placeholder: 'e.g. lukewarm, scalding, seems fine but tastes off' },
   ],
   'Grind Inconsistency': [
-    { id: 'how_inconsistent', label: 'How is the grind inconsistent? (too fine, too coarse, changes during day)', placeholder: 'Describe the pattern...' },
-    { id: 'when_started', label: 'When did this start?', placeholder: 'e.g. after cleaning, after a long weekend, gradually over weeks' },
+    { id: 'how_inconsistent', label: 'How is the grind inconsistent?', placeholder: 'e.g. too fine, too coarse, changes during day' },
+    { id: 'when_started', label: 'When did this start?', placeholder: 'e.g. after cleaning, gradually over weeks' },
     { id: 'dose_change', label: 'Has your dose or yield changed recently?', placeholder: 'Yes / No / What changed' },
   ],
   'Leaking': [
-    { id: 'location', label: 'Where is the leak coming from?', placeholder: 'e.g. group head, portafilter, steam wand, bottom of machine' },
-    { id: 'when_leaks', label: 'When does it leak? (always, during extraction, after shot, when idle)', placeholder: 'Describe timing...' },
-    { id: 'volume', label: 'How much is it leaking? (drip, steady stream, puddle)', placeholder: 'e.g. just a drip, noticeable puddle forming' },
+    { id: 'location', label: 'Where is the leak coming from?', placeholder: 'e.g. group head, portafilter, steam wand, bottom' },
+    { id: 'when_leaks', label: 'When does it leak?', placeholder: 'e.g. always, during extraction, when idle' },
+    { id: 'volume', label: 'How much is it leaking?', placeholder: 'e.g. just a drip, steady stream, puddle' },
   ],
   'Strange Noise': [
-    { id: 'noise_type', label: 'What type of noise is it?', placeholder: 'e.g. grinding, rattling, humming, clicking, squealing' },
-    { id: 'when_noise', label: 'When does the noise happen?', placeholder: 'e.g. during extraction, when heating, constantly, only on warm-up' },
-    { id: 'noise_change', label: 'Has the noise gotten worse over time?', placeholder: 'Yes, getting worse / No, constant / Yes, started suddenly' },
+    { id: 'noise_type', label: 'What type of noise is it?', placeholder: 'e.g. grinding, rattling, humming, clicking' },
+    { id: 'when_noise', label: 'When does the noise happen?', placeholder: 'e.g. during extraction, when heating, constantly' },
+    { id: 'noise_change', label: 'Has the noise gotten worse over time?', placeholder: 'Yes / No / Started suddenly' },
   ],
   'Error Code / Display Issue': [
-    { id: 'error_code', label: 'What is the exact error code or message showing?', placeholder: 'e.g. E01, TEMP ERROR, or describe what you see' },
+    { id: 'error_code', label: 'What is the exact error code or message?', placeholder: 'e.g. E01, TEMP ERROR' },
     { id: 'when_appears', label: 'When does the error appear?', placeholder: 'e.g. on startup, during extraction, randomly' },
-    { id: 'reset_tried', label: 'Have you tried turning it off and on? Did the error go away?', placeholder: 'Yes, it reset / Yes but came back / No' },
+    { id: 'reset_tried', label: 'Have you tried turning it off and on?', placeholder: 'Yes, it reset / Yes but came back / No' },
   ],
   'Filter / Water Quality': [
     { id: 'tds_reading', label: 'What is your current TDS reading?', placeholder: 'e.g. 180 ppm, or "we don\'t have a meter"' },
     { id: 'last_filter', label: 'When was the filter last changed?', placeholder: 'e.g. 6 months ago, not sure, never' },
-    { id: 'water_taste', label: 'Has the taste of coffee changed?', placeholder: 'Yes, tastes different / No change / Hard to tell' },
+    { id: 'water_taste', label: 'Has the taste of coffee changed?', placeholder: 'Yes / No / Hard to tell' },
   ],
   'Slow / Reduced Output': [
-    { id: 'output_amount', label: 'How much output are you getting vs. normal?', placeholder: 'e.g. half the usual yield, takes twice as long' },
-    { id: 'which_group', label: 'Is this on all groups or a specific one?', placeholder: 'All groups / Group 1 / Group 2 / etc.' },
-    { id: 'grind_changed', label: 'Have you changed your grind setting recently?', placeholder: 'Yes, went finer / No changes / Grind has been drifting' },
+    { id: 'output_amount', label: 'How much output vs. normal?', placeholder: 'e.g. half the usual yield, takes twice as long' },
+    { id: 'which_group', label: 'Is this on all groups or a specific one?', placeholder: 'All groups / Group 1 / Group 2' },
+    { id: 'grind_changed', label: 'Have you changed your grind setting recently?', placeholder: 'Yes / No / Grind has been drifting' },
   ],
   'Steam Wand Issue': [
     { id: 'symptom', label: 'What is the wand doing wrong?', placeholder: 'e.g. no steam, weak steam, spitting water, blocked' },
     { id: 'last_cleaned', label: 'When was the steam wand last purged and wiped?', placeholder: 'e.g. today, yesterday, not sure' },
-    { id: 'boiler_pressure', label: 'What does the steam pressure gauge read?', placeholder: 'e.g. 1.2 bar, or "it looks normal"' },
+    { id: 'boiler_pressure', label: 'What does the steam pressure gauge read?', placeholder: 'e.g. 1.2 bar, or "looks normal"' },
   ],
   'Not Brewing / Not Working': [
-    { id: 'what_happens', label: 'What happens when you try to use it?', placeholder: 'e.g. nothing at all, makes noise but no flow, starts then stops' },
-    { id: 'power', label: 'Does the machine power on and show a display?', placeholder: 'Yes / No / Powers on but no display' },
-    { id: 'when_started', label: 'When did this problem start?', placeholder: 'e.g. this morning, after closing last night, gradually' },
+    { id: 'what_happens', label: 'What happens when you try to use it?', placeholder: 'e.g. nothing at all, makes noise but no flow' },
+    { id: 'power', label: 'Does the machine power on?', placeholder: 'Yes / No / Powers on but no display' },
+    { id: 'when_started', label: 'When did this problem start?', placeholder: 'e.g. this morning, after closing last night' },
   ],
 };
 
 const DEFAULT_QUESTIONS = [
-  { id: 'when_started', label: 'When did this problem start?', placeholder: 'e.g. this morning, after the weekend, gradually over time' },
-  { id: 'frequency', label: 'How often does it happen?', placeholder: 'e.g. every time, occasionally, once so far' },
+  { id: 'when_started', label: 'When did this problem start?', placeholder: 'e.g. this morning, after the weekend' },
+  { id: 'frequency',    label: 'How often does it happen?',    placeholder: 'e.g. every time, occasionally, once so far' },
 ];
 
-// Spinner
 const Spinner = () => (
   <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
     <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.25" strokeWidth="3"/>
@@ -94,98 +92,38 @@ const Spinner = () => (
 export default function GuidedIssueForm({ equipment, onClose, onSuccess }: GuidedIssueFormProps) {
   const { user } = useAuth();
 
-  // Step: 1=issue type, 2=diagnostic questions, 3=media & submit
   const [step,      setStep]      = useState<1 | 2 | 3>(1);
   const [issueType, setIssueType] = useState('');
   const [priority,  setPriority]  = useState<RequestPriority>('normal');
   const [answers,   setAnswers]   = useState<Record<string, string>>({});
   const [notes,     setNotes]     = useState('');
-  const [mediaFiles, setMediaFiles] = useState<File[]>([]);
+  const [mediaFiles,    setMediaFiles]    = useState<File[]>([]);
   const [mediaPreviews, setMediaPreviews] = useState<string[]>([]);
-
-  const [aiLoading,  setAiLoading]  = useState(false);
-  const [aiSummary,  setAiSummary]  = useState('');
-  const [saving,     setSaving]     = useState(false);
-  const [error,      setError]      = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error,  setError]  = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const questions = issueType
-    ? (DIAGNOSTIC_QUESTIONS[issueType] ?? DEFAULT_QUESTIONS)
-    : DEFAULT_QUESTIONS;
-
+  const questions   = DIAGNOSTIC_QUESTIONS[issueType] ?? DEFAULT_QUESTIONS;
   const allAnswered = questions.every(q => answers[q.id]?.trim());
 
-  // ── Media handling ─────────────────────────────────────────────────────────
+  // ── Media ──────────────────────────────────────────────────────────────────
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
-    if (mediaFiles.length + files.length > 5) {
-      setError('Maximum 5 files allowed.');
-      return;
-    }
+    if (mediaFiles.length + files.length > 5) { setError('Maximum 5 files.'); return; }
     setError('');
     setMediaFiles(prev => [...prev, ...files]);
     files.forEach(file => {
       const reader = new FileReader();
-      reader.onload = ev => {
-        setMediaPreviews(prev => [...prev, ev.target?.result as string]);
-      };
+      reader.onload = ev => setMediaPreviews(prev => [...prev, ev.target?.result as string]);
       reader.readAsDataURL(file);
     });
-    // reset input so same file can be re-selected
     e.target.value = '';
   };
 
   const removeFile = (i: number) => {
     setMediaFiles(prev => prev.filter((_, idx) => idx !== i));
     setMediaPreviews(prev => prev.filter((_, idx) => idx !== i));
-  };
-
-  // ── AI formulation ─────────────────────────────────────────────────────────
-  const generateAiSummary = async () => {
-    setAiLoading(true);
-    setError('');
-    try {
-      const answersText = questions
-        .map(q => `${q.label}\nAnswer: ${answers[q.id] || 'Not answered'}`)
-        .join('\n\n');
-
-      const prompt = `You are a coffee equipment service coordinator at Gobena Coffee. 
-A barista has reported an issue with their ${equipment.category} (${equipment.name}${equipment.model ? ` — ${equipment.model}` : ''}).
-
-Issue type: ${issueType}
-
-Diagnostic answers:
-${answersText}
-
-Additional notes from barista: ${notes || 'None'}
-
-Write a clear, professional service request summary (3-5 sentences) that:
-1. States the problem concisely
-2. Includes the key diagnostic details a technician needs
-3. Notes any urgency indicators
-4. Is written in third person ("The shop reports...")
-
-Be specific and technical. Do not add greetings or sign-offs.`;
-
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          messages: [{ role: 'user', content: prompt }],
-        }),
-      });
-      const data = await res.json();
-      const text = data.content?.find((b: { type: string }) => b.type === 'text')?.text ?? '';
-      setAiSummary(text.trim());
-    } catch (err) {
-      console.error(err);
-      setError('AI summary failed. You can still submit without it.');
-    } finally {
-      setAiLoading(false);
-    }
   };
 
   // ── Submit ─────────────────────────────────────────────────────────────────
@@ -195,39 +133,40 @@ Be specific and technical. Do not add greetings or sign-offs.`;
     setError('');
 
     try {
-      // 1. Create the service request first to get the ID
+      // Always include raw diagnostic answers in notes so technician
+      // sees full context even without any AI processing
+      const rawAnswersSummary = questions
+        .filter(q => answers[q.id]?.trim())
+        .map(q => `• ${q.label}: ${answers[q.id]}`)
+        .join('\n');
+
+      const combinedNotes = [
+        notes.trim(),
+        rawAnswersSummary ? `Diagnostic answers:\n${rawAnswersSummary}` : '',
+      ].filter(Boolean).join('\n\n');
+
       const req = await insertServiceRequest({
         equipment_id:       equipment.id,
         shop_id:            equipment.shop_id,
         requested_by:       user?.id ?? null,
         issue_type:         issueType,
-        notes:              notes.trim(),
+        notes:              combinedNotes,
         priority,
         diagnostic_answers: answers,
-        ai_summary:         aiSummary || undefined,
-        media_urls:         [],
       });
 
-      if (!req) {
-        setError('Failed to submit request. Please try again.');
-        setSaving(false);
-        return;
-      }
+      if (!req) { setError('Failed to submit. Please try again.'); setSaving(false); return; }
 
-      // 2. Upload media files and collect URLs
+      // Upload media files
       if (mediaFiles.length > 0) {
         const urls: string[] = [];
         for (const file of mediaFiles) {
           const url = await uploadServiceMedia(file, req.id);
           if (url) urls.push(url);
         }
-        // 3. Update request with media URLs if any uploaded
         if (urls.length > 0) {
           const { supabase } = await import('../lib/supabaseClient');
-          await supabase
-            .from('service_requests')
-            .update({ media_urls: urls })
-            .eq('id', req.id);
+          await supabase.from('service_requests').update({ media_urls: urls }).eq('id', req.id);
         }
       }
 
@@ -239,7 +178,6 @@ Be specific and technical. Do not add greetings or sign-offs.`;
     }
   };
 
-  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-bark/40 backdrop-blur-sm p-4">
       <div className="bg-white rounded-2xl shadow-lifted w-full max-w-lg max-h-[92vh] flex flex-col">
@@ -251,45 +189,36 @@ Be specific and technical. Do not add greetings or sign-offs.`;
             <p className="text-xs text-roast-400 mt-0.5">{equipment.name}</p>
           </div>
           <div className="flex items-center gap-3">
-            {/* Step indicator */}
             <div className="flex items-center gap-1.5">
               {[1,2,3].map(s => (
-                <div
-                  key={s}
-                  className={`w-2 h-2 rounded-full transition-colors ${
-                    step === s ? 'bg-brew-700' : step > s ? 'bg-brew-300' : 'bg-cream-200'
-                  }`}
-                />
+                <div key={s} className={`w-2 h-2 rounded-full transition-colors ${
+                  step === s ? 'bg-brew-700' : step > s ? 'bg-brew-300' : 'bg-cream-200'
+                }`}/>
               ))}
             </div>
             <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-cream-100 text-roast-400">
-              <X size={18} />
+              <X size={18}/>
             </button>
           </div>
         </div>
 
-        {/* Scrollable body */}
+        {/* Body */}
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
 
-          {/* ── STEP 1: Issue type + priority ── */}
+          {/* Step 1 — Issue type + priority */}
           {step === 1 && (
             <>
               <div>
                 <label className="form-label">What type of issue is this? *</label>
                 <div className="grid grid-cols-2 gap-2 mt-1">
                   {ISSUE_TYPES.map(t => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setIssueType(t)}
+                    <button key={t} type="button" onClick={() => setIssueType(t)}
                       className={`py-2.5 px-3 rounded-xl border text-xs font-medium transition-all text-left ${
                         issueType === t
                           ? 'border-brew-500 bg-brew-50 text-brew-700 shadow-sm'
                           : 'border-cream-200 bg-cream-50 text-roast-600 hover:border-brew-300'
                       }`}
-                    >
-                      {t}
-                    </button>
+                    >{t}</button>
                   ))}
                 </div>
               </div>
@@ -298,18 +227,13 @@ Be specific and technical. Do not add greetings or sign-offs.`;
                 <label className="form-label">How urgent is this?</label>
                 <div className="grid grid-cols-4 gap-2">
                   {(['low','normal','high','urgent'] as RequestPriority[]).map(p => (
-                    <button
-                      key={p}
-                      type="button"
-                      onClick={() => setPriority(p)}
+                    <button key={p} type="button" onClick={() => setPriority(p)}
                       className={`py-2 rounded-xl border text-xs font-medium transition-all capitalize ${
                         priority === p
                           ? 'border-brew-500 bg-brew-50 text-brew-700 shadow-sm'
                           : 'border-cream-200 bg-cream-50 text-roast-500 hover:border-brew-300'
                       }`}
-                    >
-                      {p}
-                    </button>
+                    >{p}</button>
                   ))}
                 </div>
                 <p className="text-xs text-roast-400 mt-1.5">
@@ -322,15 +246,12 @@ Be specific and technical. Do not add greetings or sign-offs.`;
             </>
           )}
 
-          {/* ── STEP 2: Diagnostic questions ── */}
+          {/* Step 2 — Diagnostic questions */}
           {step === 2 && (
             <>
-              <div className="flex items-center gap-2 mb-1">
-                <div className="w-6 h-6 rounded-lg bg-brew-50 border border-brew-200 flex items-center justify-center shrink-0">
-                  <Sparkles size={12} className="text-brew-700" />
-                </div>
-                <p className="text-xs text-roast-500">
-                  Answer these questions so Gobena can diagnose the issue before sending a technician.
+              <div className="bg-brew-50 border border-brew-100 rounded-xl px-3 py-2.5">
+                <p className="text-xs text-brew-700">
+                  Your answers go directly to the Gobena technician — be as specific as possible.
                 </p>
               </div>
 
@@ -360,32 +281,49 @@ Be specific and technical. Do not add greetings or sign-offs.`;
             </>
           )}
 
-          {/* ── STEP 3: Media + AI + submit ── */}
+          {/* Step 3 — Media + review */}
           {step === 3 && (
             <>
+              {/* Summary of what will be sent */}
+              <div className="bg-cream-50 border border-cream-200 rounded-xl p-3 space-y-1.5">
+                <p className="text-xs font-medium text-roast-500 uppercase tracking-wide mb-2">
+                  What Gobena will receive
+                </p>
+                <div className="flex items-center gap-2 text-xs text-roast-600">
+                  <div className="w-1.5 h-1.5 rounded-full bg-brew-500 shrink-0"/>
+                  Issue type: <span className="font-medium text-bark ml-1">{issueType}</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-roast-600">
+                  <div className="w-1.5 h-1.5 rounded-full bg-brew-500 shrink-0"/>
+                  Priority: <span className="font-medium text-bark capitalize ml-1">{priority}</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-roast-600">
+                  <div className="w-1.5 h-1.5 rounded-full bg-brew-500 shrink-0"/>
+                  All {questions.length} diagnostic answers
+                </div>
+                {notes.trim() && (
+                  <div className="flex items-center gap-2 text-xs text-roast-600">
+                    <div className="w-1.5 h-1.5 rounded-full bg-brew-500 shrink-0"/>
+                    Additional notes included
+                  </div>
+                )}
+              </div>
+
               {/* Photo/video upload */}
               <div>
                 <label className="form-label">Photos or Videos (optional)</label>
                 <p className="text-xs text-roast-400 mb-2">
-                  Attach up to 5 photos or videos showing the issue. This helps Gobena diagnose faster.
+                  Attach up to 5 photos or videos showing the issue.
                 </p>
 
-                {/* Previews */}
                 {mediaPreviews.length > 0 && (
                   <div className="flex flex-wrap gap-2 mb-3">
                     {mediaPreviews.map((src, i) => (
                       <div key={i} className="relative">
-                        <img
-                          src={src}
-                          alt=""
-                          className="w-20 h-20 object-cover rounded-xl border border-cream-200"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeFile(i)}
-                          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center shadow-sm"
-                        >
-                          <Trash2 size={10} />
+                        <img src={src} alt="" className="w-20 h-20 object-cover rounded-xl border border-cream-200"/>
+                        <button type="button" onClick={() => removeFile(i)}
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center shadow-sm">
+                          <Trash2 size={10}/>
                         </button>
                         {mediaFiles[i]?.type.startsWith('video') && (
                           <div className="absolute inset-0 flex items-center justify-center bg-bark/30 rounded-xl">
@@ -398,95 +336,45 @@ Be specific and technical. Do not add greetings or sign-offs.`;
                 )}
 
                 {mediaFiles.length < 5 && (
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-cream-300 text-roast-500 text-sm font-medium hover:border-brew-300 hover:text-brew-700 transition-colors w-full justify-center"
-                  >
-                    <ImagePlus size={16} />
-                    Add photo or video
+                  <button type="button" onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-cream-300 text-roast-500 text-sm font-medium hover:border-brew-300 hover:text-brew-700 transition-colors w-full justify-center">
+                    <ImagePlus size={16}/> Add photo or video
                   </button>
                 )}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*,video/*"
-                  multiple
-                  className="hidden"
-                  onChange={handleFileSelect}
-                />
-              </div>
-
-              {/* AI summary */}
-              <div className="border border-cream-200 rounded-xl p-4 space-y-3 bg-cream-50/50">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Sparkles size={14} className="text-brew-600" />
-                    <span className="text-sm font-medium text-bark">AI Request Summary</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={generateAiSummary}
-                    disabled={aiLoading}
-                    className="text-xs text-brew-600 font-medium hover:text-brew-800 disabled:opacity-50 flex items-center gap-1"
-                  >
-                    {aiLoading ? <><Spinner /> Generating…</> : aiSummary ? 'Regenerate' : 'Generate'}
-                  </button>
-                </div>
-                {aiSummary ? (
-                  <p className="text-sm text-roast-700 leading-relaxed">{aiSummary}</p>
-                ) : (
-                  <p className="text-xs text-roast-400 italic">
-                    Click "Generate" to let AI formulate a professional summary for Gobena's technicians based on your diagnostic answers.
-                  </p>
-                )}
+                <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={handleFileSelect}/>
               </div>
             </>
           )}
 
           {error && (
-            <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
-              {error}
-            </p>
+            <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{error}</p>
           )}
         </div>
 
-        {/* Footer navigation */}
+        {/* Footer */}
         <div className="p-5 border-t border-cream-100 flex gap-3 shrink-0">
           {step > 1 && (
-            <button
-              type="button"
-              onClick={() => setStep(prev => (prev - 1) as 1 | 2 | 3)}
-              className="btn-secondary"
-            >
-              <ChevronLeft size={14} /> Back
+            <button type="button" onClick={() => setStep(prev => (prev - 1) as 1|2|3)} className="btn-secondary">
+              <ChevronLeft size={14}/> Back
             </button>
           )}
-
           {step < 3 ? (
-            <button
-              type="button"
+            <button type="button"
               disabled={step === 1 ? !issueType : !allAnswered}
-              onClick={() => setStep(prev => (prev + 1) as 2 | 3)}
-              className="btn-primary flex-1 justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {step === 1 ? 'Answer Questions' : 'Review & Submit'} <ChevronRight size={14} />
+              onClick={() => setStep(prev => (prev + 1) as 2|3)}
+              className="btn-primary flex-1 justify-center disabled:opacity-50 disabled:cursor-not-allowed">
+              {step === 1 ? 'Answer Questions' : 'Review & Submit'} <ChevronRight size={14}/>
             </button>
           ) : (
-            <button
-              type="button"
-              disabled={saving}
-              onClick={handleSubmit}
-              className="btn-primary flex-1 justify-center disabled:opacity-60"
-            >
-              {saving ? (
-                <span className="flex items-center gap-2"><Spinner /> Submitting…</span>
-              ) : (
-                <><Send size={14} /> Submit to Gobena</>
-              )}
+            <button type="button" disabled={saving} onClick={handleSubmit}
+              className="btn-primary flex-1 justify-center disabled:opacity-60">
+              {saving
+                ? <span className="flex items-center gap-2"><Spinner/> Submitting…</span>
+                : <><Send size={14}/> Submit to Gobena</>}
             </button>
           )}
         </div>
+
       </div>
     </div>
   );
