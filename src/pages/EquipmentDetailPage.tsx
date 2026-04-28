@@ -13,27 +13,42 @@ import {
   ClipboardList, PenLine, QrCode, Printer,
 } from 'lucide-react';
 
-function formatDate(dateStr: string | null | undefined): string {
-  if (!dateStr) return '—';
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    month: 'long', day: 'numeric', year: 'numeric',
-  });
+function formatDate(d: string | null | undefined) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 }
 
-function formatDateTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    month: 'short', day: 'numeric', year: 'numeric',
-  });
+function formatDateTime(d: string) {
+  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 const LOG_TYPE_CONFIG: Record<MaintenanceLog['log_type'], {
-  label: string; color: string; icon: React.ElementType
+  label: string; color: string; icon: React.ElementType;
 }> = {
   maintenance: { label: 'Maintenance', color: 'bg-brew-100 text-brew-700 border-brew-200',         icon: Wrench       },
   repair:      { label: 'Repair',      color: 'bg-red-50 text-red-600 border-red-200',             icon: AlertCircle  },
   inspection:  { label: 'Inspection',  color: 'bg-blue-50 text-blue-600 border-blue-200',          icon: CheckCircle  },
   install:     { label: 'Install',     color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: Zap          },
 };
+
+// Skeleton shown instantly while data loads — barista sees something right away
+function Skeleton() {
+  return (
+    <main className="max-w-2xl mx-auto px-4 py-6 space-y-5">
+      <div className="w-16 h-4 bg-cream-200 rounded-full animate-pulse"/>
+      <div className="card space-y-4">
+        <div className="w-20 h-3 bg-cream-200 rounded-full animate-pulse"/>
+        <div className="w-48 h-6 bg-cream-200 rounded-full animate-pulse"/>
+        <div className="w-32 h-4 bg-cream-200 rounded-full animate-pulse"/>
+        <div className="w-24 h-6 bg-cream-200 rounded-xl animate-pulse"/>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="h-14 bg-cream-200 rounded-2xl animate-pulse"/>
+        <div className="h-14 bg-cream-200 rounded-2xl animate-pulse"/>
+      </div>
+    </main>
+  );
+}
 
 export default function EquipmentDetailPage() {
   const { id }      = useParams<{ id: string }>();
@@ -43,6 +58,7 @@ export default function EquipmentDetailPage() {
   const [equipment, setEquipment] = useState<Equipment | null>(null);
   const [logs,      setLogs]      = useState<MaintenanceLog[]>([]);
   const [loading,   setLoading]   = useState(true);
+  const [notFound,  setNotFound]  = useState(false);
   const [showIssue, setShowIssue] = useState(false);
   const [showLog,   setShowLog]   = useState(false);
   const [showQR,    setShowQR]    = useState(false);
@@ -52,40 +68,35 @@ export default function EquipmentDetailPage() {
 
   const loadData = async () => {
     if (!id) return;
+    // Load equipment and logs in parallel — don't wait for auth
+    // Auth context loads separately and profile arrives when ready
     const [eq, mainLogs] = await Promise.all([
       getEquipmentById(id),
       getMaintenanceLogs(id),
     ]);
+    if (!eq) { setNotFound(true); setLoading(false); return; }
     setEquipment(eq);
     setLogs(mainLogs);
     setLoading(false);
   };
 
+  // Start loading data immediately on mount — don't wait for auth
   useEffect(() => { loadData(); }, [id]);
 
-  if (loading) {
-    return (
-      <main className="max-w-2xl mx-auto px-4 py-10 flex justify-center">
-        <svg className="w-8 h-8 animate-spin text-brew-400" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.25" strokeWidth="3"/>
-          <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
-        </svg>
-      </main>
-    );
-  }
+  if (loading)   return <Skeleton/>;
 
-  if (!equipment) {
+  if (notFound) {
     return (
       <main className="max-w-2xl mx-auto px-4 py-10">
         <div className="card text-center py-12">
-          <p className="text-roast-400">Equipment not found.</p>
-          <button onClick={() => navigate(-1)} className="btn-secondary mt-4 mx-auto">
-            Go Back
-          </button>
+          <p className="text-roast-400 mb-4">Equipment not found.</p>
+          <button onClick={() => navigate(-1)} className="btn-secondary mx-auto">Go Back</button>
         </div>
       </main>
     );
   }
+
+  if (!equipment) return null;
 
   return (
     <main className="max-w-2xl mx-auto px-4 py-6 space-y-5">
@@ -94,10 +105,10 @@ export default function EquipmentDetailPage() {
         onClick={() => navigate(-1)}
         className="flex items-center gap-1.5 text-sm text-roast-400 hover:text-bark transition-colors"
       >
-        <ArrowLeft size={14} /> Back
+        <ArrowLeft size={14}/> Back
       </button>
 
-      {/* Header card */}
+      {/* Header */}
       <div className="card">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -110,11 +121,10 @@ export default function EquipmentDetailPage() {
               <p className="text-sm text-roast-500 mt-0.5">{equipment.model}</p>
             )}
             <div className="mt-3">
-              <StatusBadge status={equipment.status} />
+              <StatusBadge status={equipment.status}/>
             </div>
           </div>
 
-          {/* QR button — admin only */}
           {isAdmin && (
             <button
               onClick={() => setShowQR(v => !v)}
@@ -125,21 +135,21 @@ export default function EquipmentDetailPage() {
               }`}
               title="Show QR code"
             >
-              <QrCode size={18} />
+              <QrCode size={18}/>
             </button>
           )}
         </div>
 
-        {/* QR Code panel — admin only, toggleable */}
+        {/* QR panel */}
         {isAdmin && showQR && (
           <div className="mt-4 pt-4 border-t border-cream-100 flex flex-col sm:flex-row items-center gap-5">
             <div className="p-3 rounded-xl border border-cream-200 bg-foam shrink-0">
-              <QRCode value={equipmentUrl} size={140} />
+              <QRCode value={equipmentUrl} size={140}/>
             </div>
             <div className="text-center sm:text-left">
               <p className="text-sm font-medium text-bark">QR Code for this machine</p>
               <p className="text-xs text-roast-400 mt-1">
-                Print this label and stick it on the equipment. Scanning it opens this page directly.
+                Print and stick on the equipment. Scanning opens this page.
               </p>
               <p className="text-xs font-mono text-roast-300 mt-2 break-all">{equipmentUrl}</p>
               <Link
@@ -147,24 +157,23 @@ export default function EquipmentDetailPage() {
                 target="_blank"
                 className="btn-secondary mt-3 inline-flex text-xs py-2"
               >
-                <Printer size={13} />
-                Open Print View
+                <Printer size={13}/> Open Print View
               </Link>
             </div>
           </div>
         )}
 
-        {/* Meta grid */}
+        {/* Meta */}
         <div className="grid grid-cols-2 gap-3 mt-5 pt-4 border-t border-cream-100">
           <div className="flex items-start gap-2">
-            <Calendar size={14} className="text-roast-400 mt-0.5 shrink-0" />
+            <Calendar size={14} className="text-roast-400 mt-0.5 shrink-0"/>
             <div>
               <p className="text-xs text-roast-400">Installed</p>
               <p className="text-sm font-medium text-bark">{formatDate(equipment.install_date)}</p>
             </div>
           </div>
           <div className="flex items-start gap-2">
-            <Wrench size={14} className="text-roast-400 mt-0.5 shrink-0" />
+            <Wrench size={14} className="text-roast-400 mt-0.5 shrink-0"/>
             <div>
               <p className="text-xs text-roast-400">Last Service</p>
               <p className="text-sm font-medium text-bark">{formatDate(equipment.last_service)}</p>
@@ -172,7 +181,7 @@ export default function EquipmentDetailPage() {
           </div>
           {equipment.serial_number && (
             <div className="flex items-start gap-2">
-              <Hash size={14} className="text-roast-400 mt-0.5 shrink-0" />
+              <Hash size={14} className="text-roast-400 mt-0.5 shrink-0"/>
               <div>
                 <p className="text-xs text-roast-400">Serial No.</p>
                 <p className="text-sm font-medium text-bark font-mono">{equipment.serial_number}</p>
@@ -180,7 +189,7 @@ export default function EquipmentDetailPage() {
             </div>
           )}
           <div className="flex items-start gap-2">
-            <Tag size={14} className="text-roast-400 mt-0.5 shrink-0" />
+            <Tag size={14} className="text-roast-400 mt-0.5 shrink-0"/>
             <div>
               <p className="text-xs text-roast-400">Equipment ID</p>
               <p className="text-sm font-medium text-bark font-mono">{equipment.id.slice(0, 8)}…</p>
@@ -196,35 +205,32 @@ export default function EquipmentDetailPage() {
         )}
       </div>
 
-      {/* Action buttons */}
+      {/* Actions */}
       <div className="grid grid-cols-2 gap-3">
         <button
           onClick={() => setShowIssue(true)}
           className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-brew-700 text-cream-50 font-medium text-sm hover:bg-brew-800 transition-colors shadow-sm active:scale-95"
         >
-          <AlertCircle size={16} />
-          Log Issue
+          <AlertCircle size={16}/> Log Issue
         </button>
         {isAdmin ? (
           <button
             onClick={() => setShowLog(true)}
             className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-cream-100 text-roast-700 font-medium text-sm hover:bg-cream-200 transition-colors border border-cream-300 active:scale-95"
           >
-            <PenLine size={16} />
-            Log Service Entry
+            <PenLine size={16}/> Log Service Entry
           </button>
         ) : (
           <button
             onClick={() => setShowIssue(true)}
             className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-cream-100 text-roast-700 font-medium text-sm hover:bg-cream-200 transition-colors border border-cream-300 active:scale-95"
           >
-            <ClipboardList size={16} />
-            Request Service
+            <ClipboardList size={16}/> Request Service
           </button>
         )}
       </div>
 
-      {/* Maintenance history */}
+      {/* Service history */}
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="section-title">Service History</h2>
@@ -232,12 +238,10 @@ export default function EquipmentDetailPage() {
         </div>
 
         {logs.length === 0 ? (
-          <div className="card text-center py-8 text-roast-400 text-sm">
-            No service history yet.
-          </div>
+          <div className="card text-center py-8 text-roast-400 text-sm">No service history yet.</div>
         ) : (
           <div className="relative">
-            <div className="absolute left-[18px] top-4 bottom-4 w-px bg-cream-200" />
+            <div className="absolute left-[18px] top-4 bottom-4 w-px bg-cream-200"/>
             <div className="space-y-3">
               {logs.map(log => {
                 const cfg  = LOG_TYPE_CONFIG[log.log_type];
@@ -245,7 +249,7 @@ export default function EquipmentDetailPage() {
                 return (
                   <div key={log.id} className="flex gap-4">
                     <div className={`relative z-10 w-9 h-9 rounded-full border flex items-center justify-center shrink-0 bg-white ${cfg.color}`}>
-                      <Icon size={14} />
+                      <Icon size={14}/>
                     </div>
                     <div className="card flex-1 mb-0 py-3 px-4">
                       <div className="flex items-center justify-between gap-2 mb-1">
@@ -263,7 +267,7 @@ export default function EquipmentDetailPage() {
         )}
       </section>
 
-      {/* Modals — GuidedIssueForm replaces old IssueForm */}
+      {/* Modals */}
       {showIssue && (
         <GuidedIssueForm
           equipment={equipment}
