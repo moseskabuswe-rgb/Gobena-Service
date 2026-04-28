@@ -1,17 +1,23 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, Suspense, lazy } from 'react-router-dom';
 import { AuthProvider, useAuth } from './lib/AuthContext';
-import LoginPage             from './pages/LoginPage';
-import SignupPage            from './pages/SignupPage';
-import DashboardPage         from './pages/DashboardPage';
-import EquipmentListPage     from './pages/EquipmentListPage';
-import EquipmentDetailPage   from './pages/EquipmentDetailPage';
-import AdminDashboardPage    from './pages/AdminDashboardPage';
-import QRPrintPage           from './pages/QRPrintPage';
-import TroubleshootPage      from './pages/TroubleshootPage';
-import ChecklistPage         from './pages/ChecklistPage';
-import AdminAddShopPage      from './pages/AdminAddShopPage';
-import AdminAddEquipmentPage from './pages/AdminAddEquipmentPage';
-import Navbar                from './components/Navbar';
+import Navbar from './components/Navbar';
+
+// ── Eager load only what's needed for the QR scan path ──────────────────────
+// EquipmentDetailPage loads immediately since it's the QR landing page
+import EquipmentDetailPage from './pages/EquipmentDetailPage';
+import LoginPage           from './pages/LoginPage';
+
+// ── Lazy load everything else ────────────────────────────────────────────────
+// These only download when the user actually navigates to them
+const SignupPage            = lazy(() => import('./pages/SignupPage'));
+const DashboardPage         = lazy(() => import('./pages/DashboardPage'));
+const EquipmentListPage     = lazy(() => import('./pages/EquipmentListPage'));
+const AdminDashboardPage    = lazy(() => import('./pages/AdminDashboardPage'));
+const QRPrintPage           = lazy(() => import('./pages/QRPrintPage'));
+const TroubleshootPage      = lazy(() => import('./pages/TroubleshootPage'));
+const ChecklistPage         = lazy(() => import('./pages/ChecklistPage'));
+const AdminAddShopPage      = lazy(() => import('./pages/AdminAddShopPage'));
+const AdminAddEquipmentPage = lazy(() => import('./pages/AdminAddEquipmentPage'));
 
 function LoadingScreen() {
   return (
@@ -40,9 +46,9 @@ function RequireAuth({ children }: { children: JSX.Element }) {
 
 function RequireAdmin({ children }: { children: JSX.Element }) {
   const { user, profile, loading } = useAuth();
-  if (loading) return <LoadingScreen/>;
-  if (!user) return <Navigate to="/login" replace/>;
-  if (!profile) return <LoadingScreen/>;
+  if (loading)            return <LoadingScreen/>;
+  if (!user)              return <Navigate to="/login" replace/>;
+  if (!profile)           return <LoadingScreen/>;
   if (profile.role !== 'admin') return <Navigate to="/dashboard" replace/>;
   return children;
 }
@@ -52,43 +58,46 @@ function AppRoutes() {
   const location = useLocation();
   const isPrintPage = location.pathname.endsWith('/qr');
 
-  // Wait for profile before deciding where to send logged-in users
   const getDefaultPath = () => {
     if (!user) return '/login';
     if (!profile) return null;
     return profile.role === 'admin' ? '/admin' : '/dashboard';
   };
 
-  const defaultPath = getDefaultPath();
+  const defaultPath    = getDefaultPath();
   if (user && !profile && loading) return <LoadingScreen/>;
   const resolvedDefault = defaultPath ?? '/dashboard';
 
   return (
     <div className="min-h-screen bg-foam">
       {user && !isPrintPage && <Navbar/>}
-      <Routes>
-        {/* Public */}
-        <Route path="/login"  element={user && defaultPath ? <Navigate to={resolvedDefault}/> : <LoginPage/>}/>
-        <Route path="/signup" element={user && defaultPath ? <Navigate to={resolvedDefault}/> : <SignupPage/>}/>
+      <Suspense fallback={<LoadingScreen/>}>
+        <Routes>
+          {/* Public */}
+          <Route path="/login"  element={user && defaultPath ? <Navigate to={resolvedDefault}/> : <LoginPage/>}/>
+          <Route path="/signup" element={user && defaultPath ? <Navigate to={resolvedDefault}/> : <SignupPage/>}/>
 
-        {/* Partner */}
-        <Route path="/dashboard"     element={<RequireAuth><DashboardPage/></RequireAuth>}/>
-        <Route path="/equipment"     element={<RequireAuth><EquipmentListPage/></RequireAuth>}/>
-        <Route path="/equipment/:id" element={<RequireAuth><EquipmentDetailPage/></RequireAuth>}/>
-        <Route path="/troubleshoot"  element={<RequireAuth><TroubleshootPage/></RequireAuth>}/>
-        <Route path="/checklist"     element={<RequireAuth><ChecklistPage/></RequireAuth>}/>
+          {/* Partner */}
+          <Route path="/dashboard"     element={<RequireAuth><DashboardPage/></RequireAuth>}/>
+          <Route path="/equipment"     element={<RequireAuth><EquipmentListPage/></RequireAuth>}/>
+          <Route path="/troubleshoot"  element={<RequireAuth><TroubleshootPage/></RequireAuth>}/>
+          <Route path="/checklist"     element={<RequireAuth><ChecklistPage/></RequireAuth>}/>
 
-        {/* QR print */}
-        <Route path="/equipment/:id/qr" element={<RequireAdmin><QRPrintPage/></RequireAdmin>}/>
+          {/* QR scan target — equipment detail is eager loaded for speed */}
+          <Route path="/equipment/:id" element={<RequireAuth><EquipmentDetailPage/></RequireAuth>}/>
 
-        {/* Admin */}
-        <Route path="/admin"               element={<RequireAdmin><AdminDashboardPage/></RequireAdmin>}/>
-        <Route path="/admin/add-shop"      element={<RequireAdmin><AdminAddShopPage/></RequireAdmin>}/>
-        <Route path="/admin/add-equipment" element={<RequireAdmin><AdminAddEquipmentPage/></RequireAdmin>}/>
+          {/* QR print */}
+          <Route path="/equipment/:id/qr" element={<RequireAdmin><QRPrintPage/></RequireAdmin>}/>
 
-        {/* Catch-all */}
-        <Route path="*" element={<Navigate to={resolvedDefault} replace/>}/>
-      </Routes>
+          {/* Admin */}
+          <Route path="/admin"               element={<RequireAdmin><AdminDashboardPage/></RequireAdmin>}/>
+          <Route path="/admin/add-shop"      element={<RequireAdmin><AdminAddShopPage/></RequireAdmin>}/>
+          <Route path="/admin/add-equipment" element={<RequireAdmin><AdminAddEquipmentPage/></RequireAdmin>}/>
+
+          {/* Catch-all */}
+          <Route path="*" element={<Navigate to={resolvedDefault} replace/>}/>
+        </Routes>
+      </Suspense>
     </div>
   );
 }
