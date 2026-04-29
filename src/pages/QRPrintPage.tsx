@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getEquipmentById } from '../lib/queries';
 import type { Equipment } from '../types';
 import QRCode from '../components/QRCode';
-import { Printer, ArrowLeft } from 'lucide-react';
+import { Printer, ArrowLeft } from '../components/Icons';
 
 export default function QRPrintPage() {
   const { id } = useParams<{ id: string }>();

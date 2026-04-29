@@ -10,7 +10,7 @@ import EquipmentCard from '../components/EquipmentCard';
 import {
   Wrench, AlertTriangle, Clock, ChevronRight,
   Building2, BookOpen, X, ImageIcon,
-} from 'lucide-react';
+} from '../components/Icons';
 
 function formatDate(d: string) {
   return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle, Circle, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
+import { CheckCircle, Circle, ChevronDown, ChevronUp, AlertTriangle } from '../components/Icons';
 
 interface ChecklistItem {
   id: string;

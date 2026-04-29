@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Search, BookOpen, ChevronDown, ChevronUp, Tag } from 'lucide-react';
+import { Search, BookOpen, ChevronDown, ChevronUp, Tag } from '../components/Icons';
 import { getTroubleshootEntries } from '../lib/queries';
 import type { TroubleshootEntry } from '../types';
 

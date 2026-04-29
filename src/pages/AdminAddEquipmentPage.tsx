@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getShops } from '../lib/queries';
 import { supabase } from '../lib/supabaseClient';
 import type { Shop, EquipmentCategory, EquipmentStatus } from '../types';
-import { ArrowLeft, Wrench } from 'lucide-react';
+import { ArrowLeft, Wrench } from '../components/Icons';
 
 const CATEGORIES: EquipmentCategory[] = [
   'Espresso Machine', 'Grinder', 'Brewer', 'Refrigeration', 'Water System', 'Other',

@@ -10,8 +10,8 @@ import { useAuth } from '../lib/AuthContext';
 import {
   ArrowLeft, Calendar, Hash, Tag, Wrench,
   AlertCircle, CheckCircle, Zap,
-  ClipboardList, PenLine, QrCode, Printer,
-} from 'lucide-react';
+  ClipboardList, PenLine, QrCode, Printer, LogIn,
+} from '../components/Icons';
 
 function formatDate(d: string | null | undefined) {
   if (!d) return '—';
@@ -31,7 +31,6 @@ const LOG_TYPE_CONFIG: Record<MaintenanceLog['log_type'], {
   install:     { label: 'Install',     color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: Zap          },
 };
 
-// Skeleton shown instantly while data loads — barista sees something right away
 function Skeleton() {
   return (
     <main className="max-w-2xl mx-auto px-4 py-6 space-y-5">
@@ -51,9 +50,9 @@ function Skeleton() {
 }
 
 export default function EquipmentDetailPage() {
-  const { id }      = useParams<{ id: string }>();
-  const { profile } = useAuth();
-  const navigate    = useNavigate();
+  const { id }              = useParams<{ id: string }>();
+  const { profile, user }   = useAuth();
+  const navigate             = useNavigate();
 
   const [equipment, setEquipment] = useState<Equipment | null>(null);
   const [logs,      setLogs]      = useState<MaintenanceLog[]>([]);
@@ -62,14 +61,14 @@ export default function EquipmentDetailPage() {
   const [showIssue, setShowIssue] = useState(false);
   const [showLog,   setShowLog]   = useState(false);
   const [showQR,    setShowQR]    = useState(false);
+  const [needsAuth, setNeedsAuth] = useState(false);
 
   const isAdmin      = profile?.role === 'admin';
+  const isLoggedIn   = !!user;
   const equipmentUrl = `${window.location.origin}/equipment/${id}`;
 
   const loadData = async () => {
     if (!id) return;
-    // Load equipment and logs in parallel — don't wait for auth
-    // Auth context loads separately and profile arrives when ready
     const [eq, mainLogs] = await Promise.all([
       getEquipmentById(id),
       getMaintenanceLogs(id),
@@ -80,33 +79,41 @@ export default function EquipmentDetailPage() {
     setLoading(false);
   };
 
-  // Start loading data immediately on mount — don't wait for auth
+  // Load data immediately — no auth check, public read policy handles it
   useEffect(() => { loadData(); }, [id]);
 
-  if (loading)   return <Skeleton/>;
+  const handleLogIssue = () => {
+    if (!isLoggedIn) {
+      // Save where they are so after login they come back here
+      sessionStorage.setItem('gobena_redirect', `/equipment/${id}`);
+      setNeedsAuth(true);
+      return;
+    }
+    setShowIssue(true);
+  };
 
-  if (notFound) {
-    return (
-      <main className="max-w-2xl mx-auto px-4 py-10">
-        <div className="card text-center py-12">
-          <p className="text-roast-400 mb-4">Equipment not found.</p>
-          <button onClick={() => navigate(-1)} className="btn-secondary mx-auto">Go Back</button>
-        </div>
-      </main>
-    );
-  }
-
+  if (loading)  return <Skeleton/>;
+  if (notFound) return (
+    <main className="max-w-2xl mx-auto px-4 py-10">
+      <div className="card text-center py-12">
+        <p className="text-roast-400 mb-4">Equipment not found.</p>
+        <button onClick={() => navigate(-1)} className="btn-secondary mx-auto">Go Back</button>
+      </div>
+    </main>
+  );
   if (!equipment) return null;
 
   return (
     <main className="max-w-2xl mx-auto px-4 py-6 space-y-5">
-      {/* Back */}
-      <button
-        onClick={() => navigate(-1)}
-        className="flex items-center gap-1.5 text-sm text-roast-400 hover:text-bark transition-colors"
-      >
-        <ArrowLeft size={14}/> Back
-      </button>
+      {/* Back — only show if they came from within the app */}
+      {isLoggedIn && (
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-1.5 text-sm text-roast-400 hover:text-bark transition-colors"
+        >
+          <ArrowLeft size={14}/> Back
+        </button>
+      )}
 
       {/* Header */}
       <div className="card">
@@ -133,14 +140,12 @@ export default function EquipmentDetailPage() {
                   ? 'bg-brew-700 text-cream-50 border-brew-700'
                   : 'bg-cream-50 text-roast-500 border-cream-200 hover:border-brew-300'
               }`}
-              title="Show QR code"
             >
               <QrCode size={18}/>
             </button>
           )}
         </div>
 
-        {/* QR panel */}
         {isAdmin && showQR && (
           <div className="mt-4 pt-4 border-t border-cream-100 flex flex-col sm:flex-row items-center gap-5">
             <div className="p-3 rounded-xl border border-cream-200 bg-foam shrink-0">
@@ -148,22 +153,15 @@ export default function EquipmentDetailPage() {
             </div>
             <div className="text-center sm:text-left">
               <p className="text-sm font-medium text-bark">QR Code for this machine</p>
-              <p className="text-xs text-roast-400 mt-1">
-                Print and stick on the equipment. Scanning opens this page.
-              </p>
+              <p className="text-xs text-roast-400 mt-1">Print and stick on the equipment.</p>
               <p className="text-xs font-mono text-roast-300 mt-2 break-all">{equipmentUrl}</p>
-              <Link
-                to={`/equipment/${id}/qr`}
-                target="_blank"
-                className="btn-secondary mt-3 inline-flex text-xs py-2"
-              >
+              <Link to={`/equipment/${id}/qr`} target="_blank" className="btn-secondary mt-3 inline-flex text-xs py-2">
                 <Printer size={13}/> Open Print View
               </Link>
             </div>
           </div>
         )}
 
-        {/* Meta */}
         <div className="grid grid-cols-2 gap-3 mt-5 pt-4 border-t border-cream-100">
           <div className="flex items-start gap-2">
             <Calendar size={14} className="text-roast-400 mt-0.5 shrink-0"/>
@@ -205,10 +203,10 @@ export default function EquipmentDetailPage() {
         )}
       </div>
 
-      {/* Actions */}
+      {/* Action buttons */}
       <div className="grid grid-cols-2 gap-3">
         <button
-          onClick={() => setShowIssue(true)}
+          onClick={handleLogIssue}
           className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-brew-700 text-cream-50 font-medium text-sm hover:bg-brew-800 transition-colors shadow-sm active:scale-95"
         >
           <AlertCircle size={16}/> Log Issue
@@ -222,7 +220,7 @@ export default function EquipmentDetailPage() {
           </button>
         ) : (
           <button
-            onClick={() => setShowIssue(true)}
+            onClick={handleLogIssue}
             className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-cream-100 text-roast-700 font-medium text-sm hover:bg-cream-200 transition-colors border border-cream-300 active:scale-95"
           >
             <ClipboardList size={16}/> Request Service
@@ -230,13 +228,41 @@ export default function EquipmentDetailPage() {
         )}
       </div>
 
+      {/* Login prompt — shown when unauthenticated user taps Log Issue */}
+      {needsAuth && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-bark/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-lifted w-full max-w-sm p-6 text-center">
+            <div className="w-12 h-12 rounded-full bg-brew-50 border border-brew-200 flex items-center justify-center mx-auto mb-4">
+              <LogIn size={20} className="text-brew-700"/>
+            </div>
+            <h2 className="font-display text-lg font-semibold text-bark mb-2">Sign in to log an issue</h2>
+            <p className="text-sm text-roast-500 mb-6">
+              You need a Gobena partner account to submit service requests.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setNeedsAuth(false)}
+                className="btn-secondary flex-1"
+              >
+                Cancel
+              </button>
+              <Link
+                to="/login"
+                className="btn-primary flex-1 justify-center"
+              >
+                Sign In
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Service history */}
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="section-title">Service History</h2>
           <span className="text-xs text-roast-400">{logs.length} entries</span>
         </div>
-
         {logs.length === 0 ? (
           <div className="card text-center py-8 text-roast-400 text-sm">No service history yet.</div>
         ) : (
@@ -267,7 +293,6 @@ export default function EquipmentDetailPage() {
         )}
       </section>
 
-      {/* Modals */}
       {showIssue && (
         <GuidedIssueForm
           equipment={equipment}

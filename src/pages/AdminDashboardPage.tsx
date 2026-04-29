@@ -12,7 +12,7 @@ import {
   Building2, Wrench, ClipboardList, AlertTriangle,
   ChevronRight, Search, Plus, X, CheckCircle,
   Image as ImageIcon, BookOpen,
-} from 'lucide-react';
+} from '../components/Icons';
 
 function formatDate(d: string) {
   return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
