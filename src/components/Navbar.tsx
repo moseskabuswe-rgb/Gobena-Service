@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext';
-import { LayoutGrid, Wrench, ShieldCheck, LogOut, BookOpen, ClipboardCheck } from 'lucide-react';
+import { LayoutGrid, Wrench, ShieldCheck, LogOut, BookOpen, ClipboardCheck } from './Icons';
 
 function GoMark({ size = 28 }: { size?: number }) {
   const r = Math.round(size * 0.22);

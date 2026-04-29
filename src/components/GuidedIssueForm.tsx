@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { X, Send, ImagePlus, Trash2, ChevronRight, ChevronLeft } from 'lucide-react';
+import { X, Send, ImagePlus, Trash2, ChevronRight, ChevronLeft } from './Icons';
 import { insertServiceRequest, uploadServiceMedia } from '../lib/queries';
 import { useAuth } from '../lib/AuthContext';
 import type { Equipment, RequestPriority } from '../types';
