@@ -17,24 +17,18 @@ const AuthContext = createContext<AuthContextValue>({
   refreshProfile: async () => {},
 });
 
-// Retry fetching profile — handles post-signup trigger race condition
-async function fetchProfileWithRetry(
-  userId: string,
-  attempts = 6,
-  delayMs  = 700
-): Promise<Profile | null> {
-  for (let i = 0; i < attempts; i++) {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, full_name, role, shop_id, created_at')  // explicit columns — no extras
-      .eq('id', userId)
-      .single();
+async function fetchProfile(userId: string): Promise<Profile | null> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, full_name, role, shop_id, created_at')
+    .eq('id', userId)
+    .single();
 
-    if (data) return data as Profile;
-    if (error) console.warn(`Profile fetch attempt ${i + 1}:`, error.message);
-    if (i < attempts - 1) await new Promise(r => setTimeout(r, delayMs));
+  if (error) {
+    console.warn('[Auth] Profile fetch error:', error.message);
+    return null;
   }
-  return null;
+  return data as Profile;
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -44,25 +38,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshProfile = async () => {
     if (!user) return;
-    const p = await fetchProfileWithRetry(user.id);
+    const p = await fetchProfile(user.id);
     setProfile(p);
   };
 
   useEffect(() => {
+    // Get existing session immediately on mount
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        const p = await fetchProfileWithRetry(session.user.id);
+      const u = session?.user ?? null;
+      setUser(u);
+      if (u) {
+        const p = await fetchProfile(u.id);
         setProfile(p);
       }
       setLoading(false);
     });
 
+    // Listen for auth changes (login, logout)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          const p = await fetchProfileWithRetry(session.user.id);
+        const u = session?.user ?? null;
+        setUser(u);
+        if (u) {
+          const p = await fetchProfile(u.id);
           setProfile(p);
         } else {
           setProfile(null);
