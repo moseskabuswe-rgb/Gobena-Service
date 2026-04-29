@@ -2,92 +2,114 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  html {
-    font-family: 'DM Sans', system-ui, sans-serif;
-    background-color: #fdf8f2;
-    color: #2c1a0e;
-  }
-
-  h1, h2, h3, h4 {
-    font-family: 'Playfair Display', Georgia, serif;
-  }
+/* ── Safe area insets — iOS and Android ─────────────────────────────────── */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
 }
 
+/* ── Base resets ─────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  /* Remove tap flash on both iOS and Android */
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Prevent font size inflation on orientation change (Android) */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  background-color: #faf7f4;
+  color: #2c1a0e;
+  /* Prevent overscroll bounce on iOS */
+  overscroll-behavior: none;
+}
+
+/* ── Typography ─────────────────────────────────────────────────────────── */
+.font-display { font-family: 'Playfair Display', Georgia, serif; }
+.font-mono    { font-family: 'DM Mono', 'Courier New', monospace; }
+
+/* ── Bottom tab bar safe area ───────────────────────────────────────────── */
+/*
+  iOS:     env(safe-area-inset-bottom) handles the home indicator (~34px on
+           newer iPhones, 0 on older ones with physical home button)
+
+  Android: Chrome on Android with gesture navigation adds its own bottom
+           inset via safe-area-inset-bottom too (~24px typical).
+           For Android with 3-button nav, the bar sits above the buttons
+           so no extra padding needed.
+
+  We always add the safe area inset on top of the tab bar height so
+  content is never hidden on either platform.
+*/
+.tab-bar-safe {
+  /* Tab bar height (64px) + safe area inset for home indicator */
+  padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* The tab bar itself needs to extend behind the safe area */
+.tab-bar {
+  /* Sit above gesture nav on Android, home indicator on iOS */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  /* Total height including safe area */
+  height: calc(4rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* ── Component classes ──────────────────────────────────────────────────── */
 @layer components {
-  /* Card */
   .card {
-    @apply bg-white rounded-2xl shadow-card border border-cream-200/60 p-5;
+    @apply bg-white rounded-2xl shadow-warm border border-cream-200/60 p-4;
   }
 
-  /* Buttons */
   .btn-primary {
-    @apply inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
-           bg-brew-700 text-cream-50 font-body font-medium text-sm
-           hover:bg-brew-800 active:scale-95 transition-all duration-150
-           shadow-sm;
+    @apply flex items-center gap-2 px-4 py-2.5 rounded-xl
+           bg-brew-700 text-cream-50 font-medium text-sm
+           hover:bg-brew-800 active:scale-95
+           transition-all duration-150 shadow-sm;
   }
 
   .btn-secondary {
-    @apply inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
-           bg-cream-100 text-roast-700 font-body font-medium text-sm
-           hover:bg-cream-200 active:scale-95 transition-all duration-150
-           border border-cream-300;
-  }
-
-  .btn-danger {
-    @apply inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
-           bg-red-600 text-white font-body font-medium text-sm
-           hover:bg-red-700 active:scale-95 transition-all duration-150;
-  }
-
-  /* Form fields */
-  .form-input {
-    @apply w-full px-4 py-2.5 rounded-xl border border-cream-300
-           bg-cream-50 text-bark placeholder-latte/70
-           font-body text-sm
-           focus:outline-none focus:ring-2 focus:ring-brew-400/40 focus:border-brew-400
-           transition-colors duration-150;
+    @apply flex items-center gap-2 px-4 py-2.5 rounded-xl
+           bg-cream-100 text-roast-700 font-medium text-sm
+           border border-cream-300
+           hover:bg-cream-200 active:scale-95
+           transition-all duration-150;
   }
 
   .form-label {
-    @apply block text-xs font-medium text-roast-600 mb-1.5 uppercase tracking-wide;
+    @apply block text-xs font-medium text-roast-500 mb-1.5 uppercase tracking-wide;
   }
 
-  /* Page title */
+  .form-input {
+    @apply w-full px-3 py-2.5 rounded-xl border border-cream-200
+           bg-cream-50 text-bark text-sm
+           focus:outline-none focus:ring-2 focus:ring-brew-400/30 focus:border-brew-400
+           placeholder:text-roast-300
+           transition-colors;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5
+           rounded-full text-xs font-medium;
+  }
+
   .page-title {
-    @apply font-display text-2xl font-semibold text-bark;
+    @apply font-display text-2xl font-semibold text-bark tracking-tight;
   }
 
   .page-subtitle {
-    @apply text-sm text-roast-500 font-body mt-0.5;
+    @apply text-sm text-roast-400 mt-1;
   }
 
-  /* Section heading */
   .section-title {
-    @apply font-display text-lg font-medium text-roast-800;
+    @apply text-xs font-semibold text-roast-500 uppercase tracking-widest;
   }
-
-  /* Badge base */
-  .badge {
-    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium font-body;
-  }
-}
-
-/* Scrollbar styling */
-::-webkit-scrollbar {
-  width: 6px;
-}
-::-webkit-scrollbar-track {
-  background: #fdf7ee;
-}
-::-webkit-scrollbar-thumb {
-  background: #d4bfa3;
-  border-radius: 3px;
-}
-
-/* Smooth focus rings */
-*:focus-visible {
-  outline: 2px solid #b87d36;
-  outline-offset: 2px;
 }
