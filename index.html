@@ -2,21 +2,32 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!--
+      viewport-fit=cover is critical for both platforms:
+      - iOS: enables env(safe-area-inset-*) for notch/home indicator
+      - Android: enables env(safe-area-inset-bottom) for gesture nav bar
+      Without this, safe-area-inset-bottom is always 0 on both platforms.
+    -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
     <!-- Favicons -->
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png"/>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
 
-    <!-- iOS home screen icon — new filename forces Safari to fetch fresh -->
+    <!-- iOS home screen -->
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-v2.png"/>
 
-    <!-- PWA manifest -->
+    <!-- PWA manifest — Android home screen icon + splash -->
     <link rel="manifest" href="/manifest.webmanifest"/>
 
-    <!-- Theme -->
+    <!-- Theme color — Android Chrome toolbar color -->
     <meta name="theme-color" content="#1a0e06"/>
+
+    <!-- Android PWA -->
     <meta name="mobile-web-app-capable" content="yes"/>
+
+    <!-- iOS PWA -->
     <meta name="apple-mobile-web-app-capable" content="yes"/>
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
     <meta name="apple-mobile-web-app-title" content="Gobena"/>
