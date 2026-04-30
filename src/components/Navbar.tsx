@@ -38,46 +38,63 @@ export default function Navbar() {
 
   return (
     <>
-      {/* ── TOP BAR ───────────────────────────────────────────────────── */}
+      {/* ── TOP BAR ────────────────────────────────────────────────────────
+          Mobile layout: [Logo] ............... [Sign Out]
+          Just 2 items — never overflows on any phone size.
+
+          Desktop (md+): [Logo] [Nav Links] [Name + Sign Out]
+      ──────────────────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-cream-200 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
 
-          {/* Logo */}
+          {/* Logo — always visible */}
           <Link
             to={isAdmin ? '/admin' : '/dashboard'}
             className="flex items-center gap-2.5 shrink-0"
           >
             <GoMark size={28}/>
-            <div className="flex items-baseline gap-0.5">
+            <div className="flex items-baseline">
               <span className="font-display font-semibold text-bark text-base tracking-tight leading-none">
                 Gobena
               </span>
-              <span className="font-display font-light text-roast-400 text-base tracking-tight leading-none ml-1">
+              <span className="font-display font-light text-roast-400 text-base tracking-tight leading-none ml-1.5">
                 Service
               </span>
             </div>
           </Link>
 
-          {/* Desktop nav — hidden on mobile */}
-          <nav className="hidden md:flex items-center gap-1 flex-1 justify-center">
+          {/* Center nav — desktop only for partners, always for admin (single item) */}
+          <nav className="flex-1 flex justify-center">
             {isAdmin ? (
-              <Link to="/admin" className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                isActive('/admin') ? 'bg-brew-700 text-cream-50' : 'text-roast-600 hover:text-bark hover:bg-cream-200/60'
-              }`}>
+              <Link
+                to="/admin"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  isActive('/admin')
+                    ? 'bg-brew-700 text-cream-50'
+                    : 'text-roast-600 hover:text-bark hover:bg-cream-200/60'
+                }`}
+              >
                 <ShieldCheck size={15}/> Admin
               </Link>
             ) : (
-              partnerTabs.map(({ to, label, Icon }) => (
-                <Link key={to} to={to} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  isActive(to) ? 'bg-brew-700 text-cream-50' : 'text-roast-600 hover:text-bark hover:bg-cream-200/60'
-                }`}>
-                  <Icon size={15}/> {label}
-                </Link>
-              ))
+              /* Hidden on mobile — bottom tab bar handles partner navigation */
+              <div className="hidden md:flex items-center gap-1">
+                {partnerTabs.map(({ to, label, Icon }) => (
+                  <Link key={to} to={to}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                      isActive(to)
+                        ? 'bg-brew-700 text-cream-50'
+                        : 'text-roast-600 hover:text-bark hover:bg-cream-200/60'
+                    }`}
+                  >
+                    <Icon size={15}/> {label}
+                  </Link>
+                ))}
+              </div>
             )}
           </nav>
 
-          {/* User info + sign out */}
+          {/* Right side — name (desktop only) + sign out (always) */}
           <div className="flex items-center gap-2 shrink-0">
             <div className="hidden sm:block text-right">
               <p className="text-xs font-medium text-bark leading-none">
@@ -89,27 +106,30 @@ export default function Navbar() {
               onClick={handleSignOut}
               className="p-2 rounded-lg text-roast-400 hover:text-bark hover:bg-cream-100 transition-colors"
               title="Sign out"
+              aria-label="Sign out"
             >
-              <LogOut size={16}/>
+              <LogOut size={18}/>
             </button>
           </div>
 
         </div>
       </header>
 
-      {/* ── MOBILE BOTTOM TAB BAR (partner only) ──────────────────────── */}
-      {/*
-        Works on both iOS and Android:
-        - tab-bar class adds padding-bottom = safe-area-inset-bottom
-          so the 4 tabs sit above the iPhone home indicator AND
-          Android gesture nav bar
-        - fixed positioning keeps it above all content
-        - z-50 ensures it's always on top
-      */}
+      {/* ── MOBILE BOTTOM TAB BAR ──────────────────────────────────────────
+          Partners only. Hidden on md+ (desktop uses top nav instead).
+          4 tabs: Home · Equipment · Checklist · Troubleshoot
+          Safe area padding covers:
+            - iPhone home indicator (env safe-area-inset-bottom ~34px)
+            - Android gesture bar (env safe-area-inset-bottom ~24px)
+            - Android 3-button nav (no inset needed, bar sits above buttons)
+      ──────────────────────────────────────────────────────────────────── */}
       {!isAdmin && (
         <nav
-          className="tab-bar md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-cream-200"
-          style={{ boxShadow: '0 -2px 12px rgba(44,26,14,0.08)' }}
+          className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-cream-200"
+          style={{
+            boxShadow: '0 -2px 16px rgba(44,26,14,0.10)',
+            paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+          }}
         >
           <div className="grid grid-cols-4 h-16">
             {partnerTabs.map(({ to, label, Icon }) => {
@@ -118,11 +138,13 @@ export default function Navbar() {
                 <Link
                   key={to}
                   to={to}
-                  className="relative flex flex-col items-center justify-center gap-1 transition-colors active:opacity-70"
+                  className="relative flex flex-col items-center justify-center gap-1 active:opacity-60 transition-opacity"
                 >
-                  {/* Active indicator at top of tab */}
+                  {/* Active top indicator bar */}
                   {active && (
-                    <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-brew-700 rounded-full"/>
+                    <span
+                      className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-brew-700 rounded-full"
+                    />
                   )}
                   <Icon
                     size={22}
@@ -137,8 +159,6 @@ export default function Navbar() {
               );
             })}
           </div>
-          {/* Safe area spacer — fills the home indicator / gesture bar area */}
-          <div style={{ height: 'env(safe-area-inset-bottom, 0px)', background: 'white' }}/>
         </nav>
       )}
     </>
