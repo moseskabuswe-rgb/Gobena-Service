@@ -4,19 +4,26 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   build: {
+    target: 'es2020',
+    minify: 'esbuild',
     rollupOptions: {
       output: {
-        manualChunks: {
-          // Split vendor libs into separate chunks so the main app
-          // bundle is smaller — critical for QR scan load time
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'supabase':      ['@supabase/supabase-js'],
-          'qrcode':        ['qrcode'],
-          'lucide':        ['lucide-react'],
+        manualChunks: (id) => {
+          // Supabase — isolated, large, changes rarely
+          if (id.includes('@supabase')) return 'supabase';
+          // React core — needed on every page
+          if (id.includes('react-dom')) return 'react-dom';
+          if (id.includes('react-router')) return 'react-router';
+          // qrcode — only needed on admin equipment page
+          if (id.includes('qrcode')) return 'qrcode';
+          // Everything else in node_modules
+          if (id.includes('node_modules')) return 'vendor';
         },
       },
     },
-    // Raise warning threshold — we know about the size, splitting handles it
     chunkSizeWarningLimit: 600,
+  },
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'react-router-dom', '@supabase/supabase-js'],
   },
 });

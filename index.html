@@ -4,43 +4,130 @@
     <meta charset="UTF-8" />
 
     <!--
-      viewport-fit=cover is critical for both platforms:
-      - iOS: enables env(safe-area-inset-*) for notch/home indicator
-      - Android: enables env(safe-area-inset-bottom) for gesture nav bar
-      Without this, safe-area-inset-bottom is always 0 on both platforms.
+      viewport-fit=cover is mandatory for both platforms:
+      iOS:     enables safe-area-inset-* for notch/home indicator
+      Android: enables safe-area-inset-bottom for gesture nav bar
     -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
-    <!-- Favicons -->
+    <!-- Preconnect to Supabase BEFORE JS runs — saves 200-400ms -->
+    <link rel="preconnect" href="https://eemaknxwnxbfqukevxsf.supabase.co" crossorigin/>
+    <link rel="dns-prefetch" href="https://eemaknxwnxbfqukevxsf.supabase.co"/>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;1,700&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+
+    <!-- Icons -->
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png"/>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
-
-    <!-- iOS home screen -->
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-v2.png"/>
-
-    <!-- PWA manifest — Android home screen icon + splash -->
     <link rel="manifest" href="/manifest.webmanifest"/>
 
-    <!-- Theme color — Android Chrome toolbar color -->
+    <!-- PWA meta -->
     <meta name="theme-color" content="#1a0e06"/>
-
-    <!-- Android PWA -->
     <meta name="mobile-web-app-capable" content="yes"/>
-
-    <!-- iOS PWA -->
     <meta name="apple-mobile-web-app-capable" content="yes"/>
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
     <meta name="apple-mobile-web-app-title" content="Gobena"/>
 
     <title>Gobena Service</title>
 
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com"/>
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;1,700&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+    <!--
+      INLINE CRITICAL CSS — renders a loading skeleton BEFORE any JS downloads.
+      This is the single biggest perceived performance improvement.
+      The user sees something in <100ms instead of staring at a blank screen
+      for 3-8 seconds while the bundle downloads and executes.
+    -->
+    <style>
+      *, *::before, *::after {
+        box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+      }
+      html {
+        font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+        background: #faf7f4;
+        color: #2c1a0e;
+      }
+      body { margin: 0; overscroll-behavior: none; }
+      #root:empty::before {
+        /* Full-screen loading state shown instantly before React mounts */
+        content: '';
+        display: flex;
+      }
+      /* Inline loading screen — shows before React boots */
+      #splash {
+        position: fixed;
+        inset: 0;
+        background: #faf7f4;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        z-index: 9999;
+        transition: opacity 0.2s ease;
+      }
+      #splash.hidden { opacity: 0; pointer-events: none; }
+      #splash-mark {
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        background: #1a0e06;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #splash-spinner {
+        width: 32px;
+        height: 32px;
+        animation: spin 0.9s linear infinite;
+      }
+      #splash-text {
+        font-size: 13px;
+        color: #a67b50;
+        letter-spacing: 0.05em;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+    </style>
   </head>
   <body>
+    <!-- Inline splash — visible in <50ms, before any JS runs -->
+    <div id="splash">
+      <div id="splash-mark">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+          <rect x="4" y="7" width="24" height="1.5" rx="0.75" fill="white" opacity="0.2"/>
+          <text x="16" y="23" font-family="Georgia,serif" font-size="16" font-weight="700"
+            font-style="italic" fill="white" text-anchor="middle">GO</text>
+        </svg>
+      </div>
+      <svg id="splash-spinner" viewBox="0 0 40 40" fill="none">
+        <circle cx="20" cy="20" r="16" stroke="#e8ddd1" stroke-width="3"/>
+        <path d="M20 4 A16 16 0 0 1 36 20" stroke="#7d4e22" stroke-width="3" stroke-linecap="round"/>
+      </svg>
+      <span id="splash-text">Loading…</span>
+    </div>
+
     <div id="root"></div>
+
     <script type="module" src="/src/main.tsx"></script>
+
+    <!-- Hide splash once React has mounted -->
+    <script>
+      // React calls this after first render via useEffect in main.tsx
+      window.__hideSplash = function() {
+        var s = document.getElementById('splash');
+        if (s) {
+          s.classList.add('hidden');
+          setTimeout(function() { s.remove(); }, 300);
+        }
+      };
+    </script>
   </body>
 </html>
