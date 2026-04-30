@@ -1,10 +1,27 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import App from './App';
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
 import './index.css';
+import App from './App';
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
+const root = createRoot(document.getElementById('root')!);
+
+root.render(
+  <StrictMode>
     <App />
-  </React.StrictMode>
+  </StrictMode>
 );
+
+// Hide the inline splash screen now that React has mounted
+// Small timeout ensures the first frame has painted
+setTimeout(() => {
+  if (typeof window.__hideSplash === 'function') {
+    window.__hideSplash();
+  }
+}, 50);
+
+// TypeScript declaration for the global function
+declare global {
+  interface Window {
+    __hideSplash: () => void;
+  }
+}
