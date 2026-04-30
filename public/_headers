@@ -1,0 +1,23 @@
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+
+# HTML — never cache, always fresh (prevents Android caching old 404s)
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# JS/CSS assets — cache forever (Vite adds content hash to filename)
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Icons — cache for 1 week
+/*.png
+  Cache-Control: public, max-age=604800
+
+/*.svg
+  Cache-Control: public, max-age=604800
+
+# Manifest — cache for 1 day
+/manifest.webmanifest
+  Cache-Control: public, max-age=86400
