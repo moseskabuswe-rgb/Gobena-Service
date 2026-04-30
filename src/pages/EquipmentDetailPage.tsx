@@ -17,9 +17,11 @@ const ServiceRequestForm = lazy(() => import('../components/ServiceRequestForm')
 const QRCodeComponent  = lazy(() => import('../components/QRCode'));
 
 // ── Types ─────────────────────────────────────────────────────────────────
-interface EquipmentWithShop extends Equipment {
+// Use a looser type rather than extending Equipment to avoid strict shop conflict
+type EquipmentWithShop = Omit<Equipment, 'shops' | 'created_at'> & {
+  created_at?: string;
   shops?: { name: string; city: string | null } | null;
-}
+};
 
 // ── Inline status badge — no external import needed ───────────────────────
 function StatusBadge({ status }: { status: Equipment['status'] }) {
@@ -116,7 +118,7 @@ export default function EquipmentDetailPage() {
       const [eqRes, logsRes] = await Promise.all([
         supabase
           .from('equipment')
-          .select('id, name, model, serial_number, category, status, install_date, last_service, notes, shop_id, shops(name, city)')
+          .select('id, name, model, serial_number, category, status, install_date, last_service, notes, shop_id, created_at, shops(name, city)')
           .eq('id', id)
           .single(),
         supabase
@@ -130,7 +132,7 @@ export default function EquipmentDetailPage() {
       if (eqRes.error || !eqRes.data) {
         setNotFound(true);
       } else {
-        setEquipment(eqRes.data as EquipmentWithShop);
+        setEquipment(eqRes.data as unknown as EquipmentWithShop);
         setLogs((logsRes.data ?? []) as MaintenanceLog[]);
       }
       setLoading(false);
@@ -148,10 +150,10 @@ export default function EquipmentDetailPage() {
     if (!id) return;
     const { data } = await supabase
       .from('equipment')
-      .select('id, name, model, serial_number, category, status, install_date, last_service, notes, shop_id, shops(name, city)')
+      .select('id, name, model, serial_number, category, status, install_date, last_service, notes, shop_id, created_at, shops(name, city)')
       .eq('id', id)
       .single();
-    if (data) setEquipment(data as EquipmentWithShop);
+    if (data) setEquipment(data as unknown as EquipmentWithShop);
   };
 
   if (loading)  return <Skeleton/>;
