@@ -9,26 +9,20 @@ import {
   ClipboardList, PenLine, QrCode, Printer, LogIn,
 } from '../components/Icons';
 
-// Lazy load heavy components — only download when user actually taps the button
-// GuidedIssueForm is 381 lines + its own deps
-// QRCode pulls in the qrcode library (~50KB)
-const GuidedIssueForm  = lazy(() => import('../components/GuidedIssueForm'));
+const GuidedIssueForm    = lazy(() => import('../components/GuidedIssueForm'));
 const ServiceRequestForm = lazy(() => import('../components/ServiceRequestForm'));
-const QRCodeComponent  = lazy(() => import('../components/QRCode'));
+const QRCodeComponent    = lazy(() => import('../components/QRCode'));
 
-// ── Types ─────────────────────────────────────────────────────────────────
-// Use a looser type rather than extending Equipment to avoid strict shop conflict
 type EquipmentWithShop = Omit<Equipment, 'shops' | 'created_at'> & {
   created_at?: string;
   shops?: { name: string; city: string | null } | null;
 };
 
-// ── Inline status badge — no external import needed ───────────────────────
 function StatusBadge({ status }: { status: Equipment['status'] }) {
   const cfg = {
-    good:            { label: 'Good',            cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-    needs_attention: { label: 'Needs Attention',  cls: 'bg-amber-50 text-amber-700 border-amber-200'     },
-    urgent:          { label: 'Urgent',           cls: 'bg-red-50 text-red-600 border-red-200'           },
+    good:            { label: 'Good',           cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+    needs_attention: { label: 'Needs Attention', cls: 'bg-amber-50 text-amber-700 border-amber-200'      },
+    urgent:          { label: 'Urgent',          cls: 'bg-red-50 text-red-600 border-red-200'            },
   }[status] ?? { label: status, cls: 'bg-cream-100 text-roast-600 border-cream-200' };
   return (
     <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${cfg.cls}`}>
@@ -37,12 +31,8 @@ function StatusBadge({ status }: { status: Equipment['status'] }) {
   );
 }
 
-// ── Log type config ────────────────────────────────────────────────────────
 const LOG_ICONS: Record<string, React.ElementType> = {
-  maintenance: Wrench,
-  repair:      AlertCircle,
-  inspection:  CheckCircle,
-  install:     Zap,
+  maintenance: Wrench, repair: AlertCircle, inspection: CheckCircle, install: Zap,
 };
 const LOG_COLORS: Record<string, string> = {
   maintenance: 'bg-brew-100 text-brew-700 border-brew-200',
@@ -51,7 +41,6 @@ const LOG_COLORS: Record<string, string> = {
   install:     'bg-emerald-50 text-emerald-700 border-emerald-200',
 };
 
-// ── Skeleton ───────────────────────────────────────────────────────────────
 function Skeleton() {
   return (
     <main className="max-w-2xl mx-auto px-4 py-6 space-y-5">
@@ -70,7 +59,6 @@ function Skeleton() {
   );
 }
 
-// ── Spinner for lazy-loaded modals ─────────────────────────────────────────
 function ModalSpinner() {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-bark/40 backdrop-blur-sm">
@@ -90,7 +78,12 @@ function formatDateTime(d: string) {
   return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-// ── Main component ─────────────────────────────────────────────────────────
+// Wraps a promise with a timeout — prevents infinite loading on slow/broken connections
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  const timeout = new Promise<T>(resolve => setTimeout(() => resolve(fallback), ms));
+  return Promise.race([promise, timeout]);
+}
+
 export default function EquipmentDetailPage() {
   const { id }            = useParams<{ id: string }>();
   const { profile, user } = useAuth();
@@ -99,7 +92,7 @@ export default function EquipmentDetailPage() {
   const [equipment, setEquipment] = useState<EquipmentWithShop | null>(null);
   const [logs,      setLogs]      = useState<MaintenanceLog[]>([]);
   const [loading,   setLoading]   = useState(true);
-  const [notFound,  setNotFound]  = useState(false);
+  const [error,     setError]     = useState<string | null>(null);
   const [showIssue, setShowIssue] = useState(false);
   const [showLog,   setShowLog]   = useState(false);
   const [showQR,    setShowQR]    = useState(false);
@@ -108,34 +101,65 @@ export default function EquipmentDetailPage() {
   const isAdmin    = profile?.role === 'admin';
   const isLoggedIn = !!user;
 
-  // Load equipment data — runs immediately, no auth check
-  // Public RLS policy allows unauthenticated reads
   useEffect(() => {
     if (!id) return;
 
     const load = async () => {
-      // Run both queries in parallel for speed
-      const [eqRes, logsRes] = await Promise.all([
-        supabase
-          .from('equipment')
-          .select('id, name, model, serial_number, category, status, install_date, last_service, notes, shop_id, created_at, shops(name, city)')
-          .eq('id', id)
-          .single(),
-        supabase
-          .from('maintenance_logs')
-          .select('id, equipment_id, performed_by, description, log_type, performed_at')
-          .eq('equipment_id', id)
-          .order('performed_at', { ascending: false })
-          .limit(20), // cap at 20 entries — no one needs to see 200 logs
-      ]);
+      setLoading(true);
+      setError(null);
 
-      if (eqRes.error || !eqRes.data) {
-        setNotFound(true);
-      } else {
-        setEquipment(eqRes.data as unknown as EquipmentWithShop);
-        setLogs((logsRes.data ?? []) as MaintenanceLog[]);
+      try {
+        // Wrap in timeout — if Supabase doesn't respond in 8 seconds, show error
+        // instead of loading forever. Android Chrome sometimes stalls on first request.
+        const [eqResult, logsResult] = await withTimeout(
+          Promise.all([
+            supabase
+              .from('equipment')
+              .select('id, name, model, serial_number, category, status, install_date, last_service, notes, shop_id, created_at, shops(name, city)')
+              .eq('id', id)
+              .single(),
+            supabase
+              .from('maintenance_logs')
+              .select('id, equipment_id, performed_by, description, log_type, performed_at')
+              .eq('equipment_id', id)
+              .order('performed_at', { ascending: false })
+              .limit(20),
+          ]),
+          8000, // 8 second timeout
+          [{ data: null, error: new Error('timeout') }, { data: [], error: null }] as any
+        );
+
+        if (eqResult.error || !eqResult.data) {
+          // If it was a timeout, retry once
+          if (eqResult.error?.message === 'timeout') {
+            const { data, error } = await supabase
+              .from('equipment')
+              .select('id, name, model, serial_number, category, status, install_date, last_service, notes, shop_id, created_at, shops(name, city)')
+              .eq('id', id)
+              .single();
+
+            if (error || !data) {
+              setError('Could not load this equipment. Please check your connection and try again.');
+              setLoading(false);
+              return;
+            }
+            setEquipment(data as unknown as EquipmentWithShop);
+          } else {
+            setError('Equipment not found.');
+            setLoading(false);
+            return;
+          }
+        } else {
+          setEquipment(eqResult.data as unknown as EquipmentWithShop);
+        }
+
+        setLogs((logsResult.data ?? []) as MaintenanceLog[]);
+      } catch (err) {
+        console.error('Equipment load error:', err);
+        setError('Could not load equipment. Please check your connection and try again.');
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     load();
@@ -156,15 +180,23 @@ export default function EquipmentDetailPage() {
     if (data) setEquipment(data as unknown as EquipmentWithShop);
   };
 
-  if (loading)  return <Skeleton/>;
+  if (loading) return <Skeleton/>;
 
-  if (notFound) return (
+  if (error) return (
     <main className="max-w-2xl mx-auto px-4 py-10">
-      <div className="bg-white rounded-2xl shadow-warm border border-cream-200 p-8 text-center">
-        <p className="text-roast-400 mb-4">Equipment not found.</p>
-        <button onClick={() => navigate(-1)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-cream-100 text-roast-700 font-medium text-sm border border-cream-300 mx-auto">
-          <ArrowLeft size={14}/> Go Back
+      <div className="bg-white rounded-2xl border border-cream-200 p-8 text-center space-y-4">
+        <div className="w-12 h-12 rounded-full bg-red-50 border border-red-200 flex items-center justify-center mx-auto">
+          <AlertCircle size={20} className="text-red-500"/>
+        </div>
+        <div>
+          <p className="font-medium text-bark">{error}</p>
+          <p className="text-sm text-roast-400 mt-1">Check your connection and try again.</p>
+        </div>
+        <button
+          onClick={() => window.location.reload()}
+          className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-brew-700 text-cream-50 font-medium text-sm mx-auto"
+        >
+          Try Again
         </button>
       </div>
     </main>
@@ -177,7 +209,6 @@ export default function EquipmentDetailPage() {
   return (
     <main className="max-w-2xl mx-auto px-4 py-6 space-y-5">
 
-      {/* Back button — only if navigated from within app */}
       {isLoggedIn && (
         <button onClick={() => navigate(-1)}
           className="flex items-center gap-1.5 text-sm text-roast-400 hover:text-bark transition-colors">
@@ -202,20 +233,17 @@ export default function EquipmentDetailPage() {
             </div>
           </div>
 
-          {/* QR button — admin only, lazy loaded */}
           {isAdmin && (
             <button onClick={() => setShowQR(v => !v)}
               className={`p-2 rounded-xl border transition-colors shrink-0 ${
-                showQR
-                  ? 'bg-brew-700 text-cream-50 border-brew-700'
-                  : 'bg-cream-50 text-roast-500 border-cream-200 hover:border-brew-300'
+                showQR ? 'bg-brew-700 text-cream-50 border-brew-700'
+                       : 'bg-cream-50 text-roast-500 border-cream-200 hover:border-brew-300'
               }`}>
               <QrCode size={18}/>
             </button>
           )}
         </div>
 
-        {/* QR panel — lazy loaded, only for admins */}
         {isAdmin && showQR && (
           <div className="mt-4 pt-4 border-t border-cream-100 flex flex-col sm:flex-row items-center gap-5">
             <div className="p-3 rounded-xl border border-cream-200 bg-foam shrink-0">
@@ -235,7 +263,6 @@ export default function EquipmentDetailPage() {
           </div>
         )}
 
-        {/* Metadata grid */}
         <div className="grid grid-cols-2 gap-3 mt-5 pt-4 border-t border-cream-100">
           <div className="flex items-start gap-2">
             <Calendar size={14} className="text-roast-400 mt-0.5 shrink-0"/>
@@ -264,7 +291,7 @@ export default function EquipmentDetailPage() {
             <Tag size={14} className="text-roast-400 mt-0.5 shrink-0"/>
             <div>
               <p className="text-xs text-roast-400">ID</p>
-              <p className="text-sm font-medium text-bark font-mono">{equipment.id.slice(0, 8)}…</p>
+              <p className="text-sm font-medium text-bark font-mono">{id?.slice(0, 8)}…</p>
             </div>
           </div>
         </div>
@@ -296,28 +323,23 @@ export default function EquipmentDetailPage() {
         )}
       </div>
 
-      {/* Auth prompt for unauthenticated users */}
+      {/* Login prompt */}
       {needsAuth && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-bark/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-lifted w-full max-w-sm p-6 text-center">
             <div className="w-12 h-12 rounded-full bg-brew-50 border border-brew-200 flex items-center justify-center mx-auto mb-4">
               <LogIn size={20} className="text-brew-700"/>
             </div>
-            <h2 className="font-display text-lg font-semibold text-bark mb-2">
-              Sign in to log an issue
-            </h2>
-            <p className="text-sm text-roast-500 mb-6">
-              You need a Gobena partner account to submit service requests.
-            </p>
+            <h2 className="font-display text-lg font-semibold text-bark mb-2">Sign in to log an issue</h2>
+            <p className="text-sm text-roast-500 mb-6">You need a Gobena partner account to submit service requests.</p>
             <div className="flex gap-3">
-              <button onClick={() => setNeedsAuth(false)} className="flex-1 py-2.5 rounded-xl bg-cream-100 text-roast-700 font-medium text-sm border border-cream-300">
+              <button onClick={() => setNeedsAuth(false)}
+                className="flex-1 py-2.5 rounded-xl bg-cream-100 text-roast-700 font-medium text-sm border border-cream-300">
                 Cancel
               </button>
-              <Link
-                to="/login"
+              <Link to="/login"
                 onClick={() => sessionStorage.setItem('gobena_redirect', `/equipment/${id}`)}
-                className="flex-1 py-2.5 rounded-xl bg-brew-700 text-cream-50 font-medium text-sm text-center"
-              >
+                className="flex-1 py-2.5 rounded-xl bg-brew-700 text-cream-50 font-medium text-sm text-center">
                 Sign In
               </Link>
             </div>
@@ -328,12 +350,9 @@ export default function EquipmentDetailPage() {
       {/* Service history */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xs font-semibold text-roast-500 uppercase tracking-widest">
-            Service History
-          </h2>
+          <h2 className="text-xs font-semibold text-roast-500 uppercase tracking-widest">Service History</h2>
           <span className="text-xs text-roast-400">{logs.length} entries</span>
         </div>
-
         {logs.length === 0 ? (
           <div className="bg-white rounded-2xl border border-cream-200 p-8 text-center text-sm text-roast-400">
             No service history yet.
@@ -368,7 +387,6 @@ export default function EquipmentDetailPage() {
         )}
       </section>
 
-      {/* Lazy-loaded modals — only download when user taps the button */}
       {showIssue && (
         <Suspense fallback={<ModalSpinner/>}>
           <GuidedIssueForm
