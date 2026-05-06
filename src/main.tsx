@@ -11,17 +11,19 @@ root.render(
   </StrictMode>
 );
 
-// Hide the inline splash screen now that React has mounted
-// Small timeout ensures the first frame has painted
-setTimeout(() => {
-  if (typeof window.__hideSplash === 'function') {
-    window.__hideSplash();
-  }
-}, 50);
+// Hide the inline splash screen once React has rendered
+// Using requestAnimationFrame ensures we wait for actual paint
+requestAnimationFrame(() => {
+  requestAnimationFrame(() => {
+    if (typeof (window as any).__appReady === 'function') {
+      (window as any).__appReady();
+    }
+  });
+});
 
-// TypeScript declaration for the global function
-declare global {
-  interface Window {
-    __hideSplash: () => void;
-  }
+// Mark fonts as loaded for CSS font-family swap
+if (document.fonts) {
+  document.fonts.ready.then(() => {
+    document.documentElement.classList.add('fonts-loaded');
+  });
 }

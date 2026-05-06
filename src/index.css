@@ -2,86 +2,74 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Safe area insets — iOS and Android ─────────────────────────────────── */
-:root {
-  --sat: env(safe-area-inset-top, 0px);
-  --sar: env(safe-area-inset-right, 0px);
-  --sab: env(safe-area-inset-bottom, 0px);
-  --sal: env(safe-area-inset-left, 0px);
+/* ── Font families with proper fallback stacks ──────────────────────────── */
+/* System fonts render instantly — custom fonts swap in when downloaded */
+
+.font-display,
+[class*="font-display"] {
+  font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+}
+
+.font-body,
+body,
+html {
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont,
+               'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+.font-mono,
+[class*="font-mono"] {
+  font-family: 'DM Mono', 'Courier New', Courier, monospace;
 }
 
 /* ── Base resets ─────────────────────────────────────────────────────────── */
 *, *::before, *::after {
   box-sizing: border-box;
-  /* Remove tap flash on both iOS and Android */
   -webkit-tap-highlight-color: transparent;
 }
 
 html {
-  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  /* Prevent font size inflation on orientation change (Android) */
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  background-color: #faf7f4;
 }
 
 body {
-  background-color: #faf7f4;
-  color: #2c1a0e;
-  /* Prevent overscroll bounce on iOS */
+  margin: 0;
   overscroll-behavior: none;
+  color: #2c1a0e;
 }
 
-/* ── Typography ─────────────────────────────────────────────────────────── */
-.font-display { font-family: 'Playfair Display', Georgia, serif; }
-.font-mono    { font-family: 'DM Mono', 'Courier New', monospace; }
+/* ── Safe area — iOS and Android ────────────────────────────────────────── */
+:root {
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
 
-/* ── Bottom tab bar safe area ───────────────────────────────────────────── */
-/*
-  iOS:     env(safe-area-inset-bottom) handles the home indicator (~34px on
-           newer iPhones, 0 on older ones with physical home button)
-
-  Android: Chrome on Android with gesture navigation adds its own bottom
-           inset via safe-area-inset-bottom too (~24px typical).
-           For Android with 3-button nav, the bar sits above the buttons
-           so no extra padding needed.
-
-  We always add the safe area inset on top of the tab bar height so
-  content is never hidden on either platform.
-*/
 .tab-bar-safe {
-  /* Tab bar height (64px) + safe area inset for home indicator */
   padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
 }
 
-/* The tab bar itself needs to extend behind the safe area */
-.tab-bar {
-  /* Sit above gesture nav on Android, home indicator on iOS */
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-  /* Total height including safe area */
-  height: calc(4rem + env(safe-area-inset-bottom, 0px));
-}
-
-/* ── Component classes ──────────────────────────────────────────────────── */
+/* ── Shared component classes ───────────────────────────────────────────── */
 @layer components {
   .card {
-    @apply bg-white rounded-2xl shadow-warm border border-cream-200/60 p-4;
+    @apply bg-white rounded-2xl border border-cream-200 p-4;
+    box-shadow: 0 2px 12px rgba(44,26,14,0.08);
   }
 
   .btn-primary {
     @apply flex items-center gap-2 px-4 py-2.5 rounded-xl
            bg-brew-700 text-cream-50 font-medium text-sm
-           hover:bg-brew-800 active:scale-95
-           transition-all duration-150 shadow-sm;
+           transition-opacity active:opacity-75;
+    box-shadow: 0 1px 4px rgba(44,26,14,0.15);
   }
 
   .btn-secondary {
     @apply flex items-center gap-2 px-4 py-2.5 rounded-xl
            bg-cream-100 text-roast-700 font-medium text-sm
            border border-cream-300
-           hover:bg-cream-200 active:scale-95
-           transition-all duration-150;
+           transition-opacity active:opacity-75;
   }
 
   .form-label {
@@ -91,8 +79,8 @@ body {
   .form-input {
     @apply w-full px-3 py-2.5 rounded-xl border border-cream-200
            bg-cream-50 text-bark text-sm
-           focus:outline-none focus:ring-2 focus:ring-brew-400/30 focus:border-brew-400
-           placeholder:text-roast-300
+           focus:outline-none focus:ring-2 focus:ring-brew-400/30
+           focus:border-brew-400 placeholder:text-roast-300
            transition-colors;
   }
 
@@ -111,5 +99,13 @@ body {
 
   .section-title {
     @apply text-xs font-semibold text-roast-500 uppercase tracking-widest;
+  }
+
+  .shadow-warm {
+    box-shadow: 0 2px 12px rgba(44,26,14,0.08);
+  }
+
+  .shadow-lifted {
+    box-shadow: 0 8px 32px rgba(44,26,14,0.18);
   }
 }
