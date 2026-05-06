@@ -53,11 +53,10 @@ function RequireAuth({ children }: { children: JSX.Element }) {
 function RequireAdmin({ children }: { children: JSX.Element }) {
   const { user, profile, loading } = useAuth();
 
-  if (loading)                  return <Spinner/>;
-  if (!user)                    return <Navigate to="/login" replace/>;
-  // Profile still loading (unlikely given 3s timeout but handle gracefully)
-  if (user && !profile)         return <Spinner/>;
-  if (profile.role !== 'admin') return <Navigate to="/dashboard" replace/>;
+  if (loading)                   return <Spinner/>;
+  if (!user)                     return <Navigate to="/login" replace/>;
+  if (!profile)                  return <Spinner/>;
+  if (profile.role !== 'admin')  return <Navigate to="/dashboard" replace/>;
 
   return children;
 }
