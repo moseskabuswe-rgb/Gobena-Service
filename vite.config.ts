@@ -4,26 +4,22 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   build: {
-    target: 'es2020',
+    // es2015 = maximum compatibility
+    // Covers Chrome 49+, Safari 10+, Samsung Internet 5+, Firefox 45+
+    // Any phone made in the last 8 years will run this
+    target: ['es2015', 'chrome58', 'safari11', 'firefox57', 'edge18'],
     minify: 'esbuild',
     rollupOptions: {
       output: {
-        manualChunks: (id) => {
-          // Supabase — isolated, large, changes rarely
-          if (id.includes('@supabase')) return 'supabase';
-          // React core — needed on every page
-          if (id.includes('react-dom')) return 'react-dom';
-          if (id.includes('react-router')) return 'react-router';
-          // qrcode — only needed on admin equipment page
-          if (id.includes('qrcode')) return 'qrcode';
-          // Everything else in node_modules
-          if (id.includes('node_modules')) return 'vendor';
+        // Split vendor chunks for better caching
+        // Each chunk is cached separately — user only re-downloads what changed
+        manualChunks: {
+          'react-core':   ['react', 'react-dom'],
+          'react-router': ['react-router-dom'],
+          'supabase':     ['@supabase/supabase-js'],
         },
       },
     },
-    chunkSizeWarningLimit: 600,
-  },
-  optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom', '@supabase/supabase-js'],
+    chunkSizeWarningLimit: 700,
   },
 });

@@ -2,64 +2,94 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-
-    <!--
-      viewport-fit=cover is mandatory for both platforms:
-      iOS:     enables safe-area-inset-* for notch/home indicator
-      Android: enables safe-area-inset-bottom for gesture nav bar
-    -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
-    <!-- Preconnect to Supabase BEFORE JS runs — saves 200-400ms -->
-    <link rel="preconnect" href="https://eemaknxwnxbfqukevxsf.supabase.co" crossorigin/>
-    <link rel="dns-prefetch" href="https://eemaknxwnxbfqukevxsf.supabase.co"/>
-
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com"/>
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;1,700&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+    <title>Gobena Service</title>
 
     <!-- Icons -->
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png"/>
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-v2.png"/>
     <link rel="manifest" href="/manifest.webmanifest"/>
 
-    <!-- PWA meta -->
+    <!-- PWA / mobile -->
     <meta name="theme-color" content="#1a0e06"/>
     <meta name="mobile-web-app-capable" content="yes"/>
     <meta name="apple-mobile-web-app-capable" content="yes"/>
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
     <meta name="apple-mobile-web-app-title" content="Gobena"/>
 
-    <title>Gobena Service</title>
+    <!-- Preconnect to Supabase so DNS resolves before JS runs -->
+    <link rel="preconnect" href="https://eemaknxwnxbfqukevxsf.supabase.co"/>
+    <link rel="dns-prefetch" href="https://eemaknxwnxbfqukevxsf.supabase.co"/>
 
     <!--
-      INLINE CRITICAL CSS — renders a loading skeleton BEFORE any JS downloads.
-      This is the single biggest perceived performance improvement.
-      The user sees something in <100ms instead of staring at a blank screen
-      for 3-8 seconds while the bundle downloads and executes.
+      FONTS — loaded NON-BLOCKING using media trick.
+      
+      The trick: set media="print" so the browser downloads it
+      without blocking rendering. Once loaded, onload switches
+      media to "all" so it applies. This works on ALL browsers
+      including older Android Chrome and Samsung Internet.
+
+      This is the standard technique recommended by Google themselves
+      for non-blocking font loading.
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;1,700&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap"
+      media="print"
+      onload="this.media='all'"
+    />
+    <!-- Fallback for browsers with JS disabled -->
+    <noscript>
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;1,700&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap"/>
+    </noscript>
+
+    <!--
+      CRITICAL CSS — inlined so the page renders immediately
+      with correct styling even before any external CSS loads.
+      Uses system fonts as fallback so text is readable instantly.
     -->
     <style>
       *, *::before, *::after {
         box-sizing: border-box;
         -webkit-tap-highlight-color: transparent;
       }
+
       html {
-        font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+        /* System font stack — works on ALL devices with zero download */
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+                     'Helvetica Neue', Arial, sans-serif;
         -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
         -webkit-text-size-adjust: 100%;
         text-size-adjust: 100%;
-        background: #faf7f4;
+        background-color: #faf7f4;
         color: #2c1a0e;
       }
-      body { margin: 0; overscroll-behavior: none; }
-      #root:empty::before {
-        /* Full-screen loading state shown instantly before React mounts */
-        content: '';
-        display: flex;
+
+      body {
+        margin: 0;
+        overscroll-behavior: none;
       }
-      /* Inline loading screen — shows before React boots */
+
+      /* Once fonts load, switch to custom fonts */
+      .fonts-loaded html {
+        font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      }
+
+      /* Safe area for iPhone home indicator + Android gesture bar */
+      :root {
+        --safe-bottom: env(safe-area-inset-bottom, 0px);
+      }
+
+      /* Tab bar safe area padding */
+      .tab-bar-safe {
+        padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+      }
+
+      /* Inline loading splash — visible in under 100ms, before any JS */
       #splash {
         position: fixed;
         inset: 0;
@@ -68,66 +98,75 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 16px;
+        gap: 20px;
         z-index: 9999;
-        transition: opacity 0.2s ease;
+        transition: opacity 0.25s ease;
       }
-      #splash.hidden { opacity: 0; pointer-events: none; }
-      #splash-mark {
-        width: 52px;
-        height: 52px;
-        border-radius: 14px;
+      #splash.done {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #splash-icon {
+        width: 56px;
+        height: 56px;
         background: #1a0e06;
+        border-radius: 14px;
         display: flex;
         align-items: center;
         justify-content: center;
       }
       #splash-spinner {
-        width: 32px;
-        height: 32px;
+        width: 36px;
+        height: 36px;
         animation: spin 0.9s linear infinite;
       }
-      #splash-text {
+      @keyframes spin { to { transform: rotate(360deg); } }
+      #splash-label {
         font-size: 13px;
         color: #a67b50;
         letter-spacing: 0.05em;
       }
-      @keyframes spin {
-        to { transform: rotate(360deg); }
-      }
     </style>
   </head>
   <body>
-    <!-- Inline splash — visible in <50ms, before any JS runs -->
+
+    <!-- Visible immediately — before any JS or external CSS downloads -->
     <div id="splash">
-      <div id="splash-mark">
-        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-          <rect x="4" y="7" width="24" height="1.5" rx="0.75" fill="white" opacity="0.2"/>
-          <text x="16" y="23" font-family="Georgia,serif" font-size="16" font-weight="700"
-            font-style="italic" fill="white" text-anchor="middle">GO</text>
+      <div id="splash-icon">
+        <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+          <rect x="5" y="8" width="26" height="1.5" rx="0.75" fill="white" opacity="0.2"/>
+          <text x="18" y="26" font-family="Georgia,serif" font-size="19"
+            font-weight="700" font-style="italic" fill="white" text-anchor="middle">GO</text>
         </svg>
       </div>
       <svg id="splash-spinner" viewBox="0 0 40 40" fill="none">
         <circle cx="20" cy="20" r="16" stroke="#e8ddd1" stroke-width="3"/>
-        <path d="M20 4 A16 16 0 0 1 36 20" stroke="#7d4e22" stroke-width="3" stroke-linecap="round"/>
+        <path d="M20 4 A16 16 0 0 1 36 20" stroke="#7d4e22"
+          stroke-width="3" stroke-linecap="round"/>
       </svg>
-      <span id="splash-text">Loading…</span>
+      <span id="splash-label">Loading…</span>
     </div>
 
     <div id="root"></div>
 
     <script type="module" src="/src/main.tsx"></script>
 
-    <!-- Hide splash once React has mounted -->
     <script>
-      // React calls this after first render via useEffect in main.tsx
-      window.__hideSplash = function() {
+      // Called from main.tsx once React has rendered first frame
+      window.__appReady = function() {
         var s = document.getElementById('splash');
         if (s) {
-          s.classList.add('hidden');
-          setTimeout(function() { s.remove(); }, 300);
+          s.classList.add('done');
+          setTimeout(function() { if (s.parentNode) s.parentNode.removeChild(s); }, 300);
         }
       };
+
+      // Safety net: if app hasn't called __appReady in 15 seconds,
+      // hide the splash anyway so the user isn't stuck
+      setTimeout(function() {
+        if (window.__appReady) window.__appReady();
+      }, 15000);
     </script>
+
   </body>
 </html>
