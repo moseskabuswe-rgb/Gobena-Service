@@ -9,32 +9,40 @@ import {
   ClipboardList, PenLine, QrCode, Printer, LogIn,
 } from '../components/Icons';
 
+// Heavy components only load when user actually taps a button
 const GuidedIssueForm    = lazy(() => import('../components/GuidedIssueForm'));
 const ServiceRequestForm = lazy(() => import('../components/ServiceRequestForm'));
 const QRCodeComponent    = lazy(() => import('../components/QRCode'));
 
-type EquipmentWithShop = Omit<Equipment, 'shops' | 'created_at'> & {
-  created_at?: string;
-  shops?: { name: string; city: string | null } | null;
+// ── Types ──────────────────────────────────────────────────────────────────
+type EqRow = {
+  id: string; name: string; model: string | null;
+  serial_number: string | null; category: string;
+  status: 'good' | 'needs_attention' | 'urgent';
+  install_date: string | null; last_service: string | null;
+  notes: string | null; shop_id: string; created_at: string;
+  shops: { name: string; city: string | null } | null;
 };
 
-function StatusBadge({ status }: { status: Equipment['status'] }) {
-  const cfg = {
-    good:            { label: 'Good',           cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-    needs_attention: { label: 'Needs Attention', cls: 'bg-amber-50 text-amber-700 border-amber-200'      },
-    urgent:          { label: 'Urgent',          cls: 'bg-red-50 text-red-600 border-red-200'            },
-  }[status] ?? { label: status, cls: 'bg-cream-100 text-roast-600 border-cream-200' };
+// ── Small inline components (no extra imports) ─────────────────────────────
+function StatusBadge({ status }: { status: EqRow['status'] }) {
+  const map = {
+    good:            'bg-emerald-50 text-emerald-700 border-emerald-200',
+    needs_attention: 'bg-amber-50 text-amber-700 border-amber-200',
+    urgent:          'bg-red-50 text-red-600 border-red-200',
+  };
+  const labels = { good: 'Good', needs_attention: 'Needs Attention', urgent: 'Urgent' };
   return (
-    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${cfg.cls}`}>
-      {cfg.label}
+    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${map[status]}`}>
+      {labels[status]}
     </span>
   );
 }
 
-const LOG_ICONS: Record<string, React.ElementType> = {
+const LOG_ICON: Record<string, React.ElementType> = {
   maintenance: Wrench, repair: AlertCircle, inspection: CheckCircle, install: Zap,
 };
-const LOG_COLORS: Record<string, string> = {
+const LOG_COLOR: Record<string, string> = {
   maintenance: 'bg-brew-100 text-brew-700 border-brew-200',
   repair:      'bg-red-50 text-red-600 border-red-200',
   inspection:  'bg-blue-50 text-blue-600 border-blue-200',
@@ -43,56 +51,49 @@ const LOG_COLORS: Record<string, string> = {
 
 function Skeleton() {
   return (
-    <main className="max-w-2xl mx-auto px-4 py-6 space-y-5">
-      <div className="w-16 h-4 bg-cream-200 rounded-full animate-pulse"/>
-      <div className="bg-white rounded-2xl p-5 space-y-4 border border-cream-200">
-        <div className="w-24 h-3 bg-cream-200 rounded-full animate-pulse"/>
-        <div className="w-52 h-6 bg-cream-200 rounded-full animate-pulse"/>
-        <div className="w-32 h-4 bg-cream-200 rounded-full animate-pulse"/>
-        <div className="w-20 h-6 bg-cream-200 rounded-xl animate-pulse"/>
+    <main className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+      <div className="h-4 w-16 bg-cream-200 rounded-full animate-pulse"/>
+      <div className="bg-white rounded-2xl p-5 border border-cream-200 space-y-3">
+        <div className="h-3 w-20 bg-cream-200 rounded-full animate-pulse"/>
+        <div className="h-6 w-48 bg-cream-200 rounded-full animate-pulse"/>
+        <div className="h-6 w-20 bg-cream-200 rounded-xl animate-pulse"/>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <div className="h-14 bg-brew-700 rounded-2xl animate-pulse opacity-60"/>
-        <div className="h-14 bg-cream-200 rounded-2xl animate-pulse"/>
+        <div className="h-14 rounded-2xl bg-brew-200 animate-pulse"/>
+        <div className="h-14 rounded-2xl bg-cream-200 animate-pulse"/>
       </div>
     </main>
   );
 }
 
-function ModalSpinner() {
+function ModalLoader() {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-bark/40 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 bg-bark/40 backdrop-blur-sm flex items-center justify-center">
       <svg className="w-10 h-10 animate-spin text-white" viewBox="0 0 40 40" fill="none">
-        <circle cx="20" cy="20" r="16" stroke="currentColor" strokeOpacity="0.3" strokeWidth="3"/>
-        <path d="M20 4 A16 16 0 0 1 36 20" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
+        <circle cx="20" cy="20" r="16" stroke="currentColor" strokeOpacity=".25" strokeWidth="3"/>
+        <path d="M20 4A16 16 0 0 1 36 20" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
       </svg>
     </div>
   );
 }
 
-function formatDate(d: string | null | undefined) {
+function fmt(d?: string | null) {
   if (!d) return '—';
   return new Date(d).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 }
-function formatDateTime(d: string) {
+function fmtShort(d: string) {
   return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-// Wraps a promise with a timeout — prevents infinite loading on slow/broken connections
-function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
-  const timeout = new Promise<T>(resolve => setTimeout(() => resolve(fallback), ms));
-  return Promise.race([promise, timeout]);
-}
-
+// ── Main page ──────────────────────────────────────────────────────────────
 export default function EquipmentDetailPage() {
   const { id }            = useParams<{ id: string }>();
   const { profile, user } = useAuth();
   const navigate          = useNavigate();
 
-  const [equipment, setEquipment] = useState<EquipmentWithShop | null>(null);
+  const [eq,        setEq]        = useState<EqRow | null>(null);
   const [logs,      setLogs]      = useState<MaintenanceLog[]>([]);
-  const [loading,   setLoading]   = useState(true);
-  const [error,     setError]     = useState<string | null>(null);
+  const [status,    setStatus]    = useState<'loading' | 'ok' | 'error'>('loading');
   const [showIssue, setShowIssue] = useState(false);
   const [showLog,   setShowLog]   = useState(false);
   const [showQR,    setShowQR]    = useState(false);
@@ -102,73 +103,52 @@ export default function EquipmentDetailPage() {
   const isLoggedIn = !!user;
 
   useEffect(() => {
-    if (!id) return;
+    if (!id) { setStatus('error'); return; }
+    setStatus('loading');
+
+    // AbortController so we can cancel if the component unmounts
+    const controller = new AbortController();
+
+    // Hard 10-second timeout — shows error instead of infinite loading
+    const timeout = setTimeout(() => {
+      controller.abort();
+      setStatus('error');
+    }, 10000);
 
     const load = async () => {
-      setLoading(true);
-      setError(null);
-
       try {
-        // Wrap in timeout — if Supabase doesn't respond in 8 seconds, show error
-        // instead of loading forever. Android Chrome sometimes stalls on first request.
-        const [eqResult, logsResult] = await withTimeout(
-          Promise.all([
-            supabase
-              .from('equipment')
-              .select('id, name, model, serial_number, category, status, install_date, last_service, notes, shop_id, created_at, shops(name, city)')
-              .eq('id', id)
-              .single(),
-            supabase
-              .from('maintenance_logs')
-              .select('id, equipment_id, performed_by, description, log_type, performed_at')
-              .eq('equipment_id', id)
-              .order('performed_at', { ascending: false })
-              .limit(20),
-          ]),
-          8000, // 8 second timeout
-          [{ data: null, error: new Error('timeout') }, { data: [], error: null }] as any
-        );
+        const [eqRes, logRes] = await Promise.all([
+          supabase
+            .from('equipment')
+            .select('id, name, model, serial_number, category, status, install_date, last_service, notes, shop_id, created_at, shops(name, city)')
+            .eq('id', id)
+            .single(),
+          supabase
+            .from('maintenance_logs')
+            .select('id, equipment_id, performed_by, description, log_type, performed_at')
+            .eq('equipment_id', id)
+            .order('performed_at', { ascending: false })
+            .limit(15),
+        ]);
 
-        if (eqResult.error || !eqResult.data) {
-          // If it was a timeout, retry once
-          if (eqResult.error?.message === 'timeout') {
-            const { data, error } = await supabase
-              .from('equipment')
-              .select('id, name, model, serial_number, category, status, install_date, last_service, notes, shop_id, created_at, shops(name, city)')
-              .eq('id', id)
-              .single();
+        if (controller.signal.aborted) return;
+        clearTimeout(timeout);
 
-            if (error || !data) {
-              setError('Could not load this equipment. Please check your connection and try again.');
-              setLoading(false);
-              return;
-            }
-            setEquipment(data as unknown as EquipmentWithShop);
-          } else {
-            setError('Equipment not found.');
-            setLoading(false);
-            return;
-          }
+        if (eqRes.error || !eqRes.data) {
+          setStatus('error');
         } else {
-          setEquipment(eqResult.data as unknown as EquipmentWithShop);
+          setEq(eqRes.data as unknown as EqRow);
+          setLogs((logRes.data ?? []) as MaintenanceLog[]);
+          setStatus('ok');
         }
-
-        setLogs((logsResult.data ?? []) as MaintenanceLog[]);
-      } catch (err) {
-        console.error('Equipment load error:', err);
-        setError('Could not load equipment. Please check your connection and try again.');
-      } finally {
-        setLoading(false);
+      } catch {
+        if (!controller.signal.aborted) setStatus('error');
       }
     };
 
     load();
+    return () => { controller.abort(); clearTimeout(timeout); };
   }, [id]);
-
-  const handleLogIssue = () => {
-    if (!isLoggedIn) { setNeedsAuth(true); return; }
-    setShowIssue(true);
-  };
 
   const reload = async () => {
     if (!id) return;
@@ -177,38 +157,33 @@ export default function EquipmentDetailPage() {
       .select('id, name, model, serial_number, category, status, install_date, last_service, notes, shop_id, created_at, shops(name, city)')
       .eq('id', id)
       .single();
-    if (data) setEquipment(data as unknown as EquipmentWithShop);
+    if (data) setEq(data as unknown as EqRow);
   };
 
-  if (loading) return <Skeleton/>;
+  if (status === 'loading') return <Skeleton/>;
 
-  if (error) return (
+  if (status === 'error' || !eq) return (
     <main className="max-w-2xl mx-auto px-4 py-10">
       <div className="bg-white rounded-2xl border border-cream-200 p-8 text-center space-y-4">
-        <div className="w-12 h-12 rounded-full bg-red-50 border border-red-200 flex items-center justify-center mx-auto">
+        <div className="w-12 h-12 rounded-full bg-red-50 border border-red-100 flex items-center justify-center mx-auto">
           <AlertCircle size={20} className="text-red-500"/>
         </div>
-        <div>
-          <p className="font-medium text-bark">{error}</p>
-          <p className="text-sm text-roast-400 mt-1">Check your connection and try again.</p>
-        </div>
-        <button
-          onClick={() => window.location.reload()}
-          className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-brew-700 text-cream-50 font-medium text-sm mx-auto"
-        >
+        <p className="font-medium text-bark">Couldn't load this equipment</p>
+        <p className="text-sm text-roast-400">Check your internet connection and try again.</p>
+        <button onClick={() => window.location.reload()}
+          className="px-5 py-2.5 rounded-xl bg-brew-700 text-cream-50 font-medium text-sm mx-auto block">
           Try Again
         </button>
       </div>
     </main>
   );
 
-  if (!equipment) return null;
-
   const equipmentUrl = `${window.location.origin}/equipment/${id}`;
 
   return (
-    <main className="max-w-2xl mx-auto px-4 py-6 space-y-5">
+    <main className="max-w-2xl mx-auto px-4 py-6 space-y-4">
 
+      {/* Back — only if navigated from within app */}
       {isLoggedIn && (
         <button onClick={() => navigate(-1)}
           className="flex items-center gap-1.5 text-sm text-roast-400 hover:text-bark transition-colors">
@@ -216,23 +191,19 @@ export default function EquipmentDetailPage() {
         </button>
       )}
 
-      {/* Equipment card */}
-      <div className="bg-white rounded-2xl shadow-warm border border-cream-200 p-5">
+      {/* Main card */}
+      <div className="bg-white rounded-2xl shadow-warm border border-cream-200 p-5 space-y-0">
+
+        {/* Header */}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs font-medium text-roast-400 uppercase tracking-wide mb-1">
-              {equipment.category}
-              {equipment.shops?.name && ` · ${equipment.shops.name}`}
+              {eq.category}{eq.shops?.name ? ` · ${eq.shops.name}` : ''}
             </p>
-            <h1 className="font-display text-xl font-semibold text-bark">{equipment.name}</h1>
-            {equipment.model && (
-              <p className="text-sm text-roast-500 mt-0.5">{equipment.model}</p>
-            )}
-            <div className="mt-3">
-              <StatusBadge status={equipment.status}/>
-            </div>
+            <h1 className="font-display text-xl font-semibold text-bark leading-tight">{eq.name}</h1>
+            {eq.model && <p className="text-sm text-roast-500 mt-0.5">{eq.model}</p>}
+            <div className="mt-3"><StatusBadge status={eq.status}/></div>
           </div>
-
           {isAdmin && (
             <button onClick={() => setShowQR(v => !v)}
               className={`p-2 rounded-xl border transition-colors shrink-0 ${
@@ -244,97 +215,83 @@ export default function EquipmentDetailPage() {
           )}
         </div>
 
+        {/* QR panel — admin only, lazy loaded */}
         {isAdmin && showQR && (
-          <div className="mt-4 pt-4 border-t border-cream-100 flex flex-col sm:flex-row items-center gap-5">
+          <div className="mt-4 pt-4 border-t border-cream-100 flex flex-col sm:flex-row items-center gap-4">
             <div className="p-3 rounded-xl border border-cream-200 bg-foam shrink-0">
               <Suspense fallback={<div className="w-36 h-36 bg-cream-100 rounded-xl animate-pulse"/>}>
                 <QRCodeComponent value={equipmentUrl} size={140}/>
               </Suspense>
             </div>
             <div className="text-center sm:text-left">
-              <p className="text-sm font-medium text-bark">QR Code for this machine</p>
-              <p className="text-xs text-roast-400 mt-1">Print and stick on the equipment.</p>
-              <p className="text-xs font-mono text-roast-300 mt-2 break-all">{equipmentUrl}</p>
+              <p className="text-sm font-medium text-bark">QR Code</p>
+              <p className="text-xs text-roast-400 mt-1">Print and attach to this machine.</p>
+              <p className="text-xs font-mono text-roast-300 mt-1.5 break-all">{equipmentUrl}</p>
               <Link to={`/equipment/${id}/qr`} target="_blank"
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-cream-100 text-roast-700 font-medium text-sm border border-cream-300 mt-3 w-fit">
-                <Printer size={13}/> Open Print View
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cream-100 text-roast-600 text-xs font-medium border border-cream-200 mt-2.5 w-fit">
+                <Printer size={12}/> Print View
               </Link>
             </div>
           </div>
         )}
 
+        {/* Meta */}
         <div className="grid grid-cols-2 gap-3 mt-5 pt-4 border-t border-cream-100">
-          <div className="flex items-start gap-2">
-            <Calendar size={14} className="text-roast-400 mt-0.5 shrink-0"/>
-            <div>
-              <p className="text-xs text-roast-400">Installed</p>
-              <p className="text-sm font-medium text-bark">{formatDate(equipment.install_date)}</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-2">
-            <Wrench size={14} className="text-roast-400 mt-0.5 shrink-0"/>
-            <div>
-              <p className="text-xs text-roast-400">Last Service</p>
-              <p className="text-sm font-medium text-bark">{formatDate(equipment.last_service)}</p>
-            </div>
-          </div>
-          {equipment.serial_number && (
-            <div className="flex items-start gap-2">
-              <Hash size={14} className="text-roast-400 mt-0.5 shrink-0"/>
-              <div>
-                <p className="text-xs text-roast-400">Serial No.</p>
-                <p className="text-sm font-medium text-bark font-mono">{equipment.serial_number}</p>
+          {[
+            { Icon: Calendar, label: 'Installed',     value: fmt(eq.install_date)  },
+            { Icon: Wrench,   label: 'Last Service',  value: fmt(eq.last_service)  },
+            ...(eq.serial_number ? [{ Icon: Hash, label: 'Serial No.', value: eq.serial_number }] : []),
+            { Icon: Tag, label: 'ID', value: eq.id.slice(0, 8) + '…' },
+          ].map(({ Icon, label, value }) => (
+            <div key={label} className="flex items-start gap-2">
+              <Icon size={13} className="text-roast-400 mt-0.5 shrink-0"/>
+              <div className="min-w-0">
+                <p className="text-xs text-roast-400">{label}</p>
+                <p className="text-sm font-medium text-bark truncate">{value}</p>
               </div>
             </div>
-          )}
-          <div className="flex items-start gap-2">
-            <Tag size={14} className="text-roast-400 mt-0.5 shrink-0"/>
-            <div>
-              <p className="text-xs text-roast-400">ID</p>
-              <p className="text-sm font-medium text-bark font-mono">{id?.slice(0, 8)}…</p>
-            </div>
-          </div>
+          ))}
         </div>
 
-        {equipment.notes && (
+        {eq.notes && (
           <div className="mt-4 pt-4 border-t border-cream-100">
             <p className="text-xs text-roast-400 mb-1">Notes</p>
-            <p className="text-sm text-roast-600">{equipment.notes}</p>
+            <p className="text-sm text-roast-600">{eq.notes}</p>
           </div>
         )}
       </div>
 
       {/* Action buttons */}
       <div className="grid grid-cols-2 gap-3">
-        <button onClick={handleLogIssue}
-          className="flex items-center justify-center gap-2 py-4 rounded-2xl bg-brew-700 text-cream-50 font-medium text-sm hover:bg-brew-800 transition-colors shadow-sm active:scale-95">
+        <button onClick={() => isLoggedIn ? setShowIssue(true) : setNeedsAuth(true)}
+          className="flex items-center justify-center gap-2 py-4 rounded-2xl bg-brew-700 text-cream-50 font-semibold text-sm active:opacity-80 transition-opacity">
           <AlertCircle size={16}/> Log Issue
         </button>
-        {isAdmin ? (
-          <button onClick={() => setShowLog(true)}
-            className="flex items-center justify-center gap-2 py-4 rounded-2xl bg-cream-100 text-roast-700 font-medium text-sm hover:bg-cream-200 transition-colors border border-cream-300 active:scale-95">
-            <PenLine size={16}/> Log Service Entry
-          </button>
-        ) : (
-          <button onClick={handleLogIssue}
-            className="flex items-center justify-center gap-2 py-4 rounded-2xl bg-cream-100 text-roast-700 font-medium text-sm hover:bg-cream-200 transition-colors border border-cream-300 active:scale-95">
-            <ClipboardList size={16}/> Request Service
-          </button>
-        )}
+        {isAdmin
+          ? <button onClick={() => setShowLog(true)}
+              className="flex items-center justify-center gap-2 py-4 rounded-2xl bg-white text-roast-700 font-medium text-sm border border-cream-300 active:opacity-80">
+              <PenLine size={16}/> Log Service
+            </button>
+          : <button onClick={() => isLoggedIn ? setShowIssue(true) : setNeedsAuth(true)}
+              className="flex items-center justify-center gap-2 py-4 rounded-2xl bg-white text-roast-700 font-medium text-sm border border-cream-300 active:opacity-80">
+              <ClipboardList size={16}/> Request Service
+            </button>
+        }
       </div>
 
-      {/* Login prompt */}
+      {/* Auth prompt for unauthenticated users tapping Log Issue */}
       {needsAuth && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-bark/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-lifted w-full max-w-sm p-6 text-center">
-            <div className="w-12 h-12 rounded-full bg-brew-50 border border-brew-200 flex items-center justify-center mx-auto mb-4">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-bark/50 backdrop-blur-sm p-4"
+          onClick={() => setNeedsAuth(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6 text-center" onClick={e => e.stopPropagation()}>
+            <div className="w-12 h-12 rounded-full bg-brew-50 border border-brew-200 flex items-center justify-center mx-auto mb-3">
               <LogIn size={20} className="text-brew-700"/>
             </div>
-            <h2 className="font-display text-lg font-semibold text-bark mb-2">Sign in to log an issue</h2>
-            <p className="text-sm text-roast-500 mb-6">You need a Gobena partner account to submit service requests.</p>
+            <h2 className="font-display text-base font-semibold text-bark mb-1">Sign in required</h2>
+            <p className="text-sm text-roast-500 mb-5">You need a Gobena partner account to submit service requests.</p>
             <div className="flex gap-3">
               <button onClick={() => setNeedsAuth(false)}
-                className="flex-1 py-2.5 rounded-xl bg-cream-100 text-roast-700 font-medium text-sm border border-cream-300">
+                className="flex-1 py-2.5 rounded-xl bg-cream-100 text-roast-700 font-medium text-sm border border-cream-200">
                 Cancel
               </button>
               <Link to="/login"
@@ -348,58 +305,63 @@ export default function EquipmentDetailPage() {
       )}
 
       {/* Service history */}
-      <section>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xs font-semibold text-roast-500 uppercase tracking-widest">Service History</h2>
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-semibold text-roast-500 uppercase tracking-widest">
+            Service History
+          </h2>
           <span className="text-xs text-roast-400">{logs.length} entries</span>
         </div>
-        {logs.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-cream-200 p-8 text-center text-sm text-roast-400">
-            No service history yet.
-          </div>
-        ) : (
-          <div className="relative">
-            <div className="absolute left-[18px] top-4 bottom-4 w-px bg-cream-200"/>
-            <div className="space-y-3">
-              {logs.map(log => {
-                const Icon  = LOG_ICONS[log.log_type]  ?? Wrench;
-                const color = LOG_COLORS[log.log_type] ?? 'bg-cream-100 text-roast-500 border-cream-200';
-                return (
-                  <div key={log.id} className="flex gap-4">
-                    <div className={`relative z-10 w-9 h-9 rounded-full border flex items-center justify-center shrink-0 bg-white ${color}`}>
-                      <Icon size={14}/>
-                    </div>
-                    <div className="bg-white rounded-2xl border border-cream-200 flex-1 py-3 px-4">
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${color}`}>
-                          {log.log_type.charAt(0).toUpperCase() + log.log_type.slice(1)}
-                        </span>
-                        <span className="text-xs text-roast-400">{formatDateTime(log.performed_at)}</span>
-                      </div>
-                      <p className="text-sm text-bark leading-snug">{log.description}</p>
-                      <p className="text-xs text-roast-400 mt-1.5">by {log.performed_by}</p>
-                    </div>
-                  </div>
-                );
-              })}
+
+        {logs.length === 0
+          ? <div className="bg-white rounded-2xl border border-cream-200 p-8 text-center text-sm text-roast-400">
+              No service history yet.
             </div>
-          </div>
-        )}
+          : (
+            <div className="relative">
+              <div className="absolute left-[18px] top-5 bottom-5 w-px bg-cream-200"/>
+              <div className="space-y-3">
+                {logs.map(log => {
+                  const Icon  = LOG_ICON[log.log_type]  ?? Wrench;
+                  const color = LOG_COLOR[log.log_type] ?? 'bg-cream-100 text-roast-500 border-cream-200';
+                  return (
+                    <div key={log.id} className="flex gap-3">
+                      <div className={`relative z-10 w-9 h-9 rounded-full border-2 flex items-center justify-center shrink-0 bg-white ${color}`}>
+                        <Icon size={14}/>
+                      </div>
+                      <div className="bg-white rounded-2xl border border-cream-200 flex-1 px-4 py-3">
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${color}`}>
+                            {log.log_type.charAt(0).toUpperCase() + log.log_type.slice(1)}
+                          </span>
+                          <span className="text-xs text-roast-400">{fmtShort(log.performed_at)}</span>
+                        </div>
+                        <p className="text-sm text-bark leading-snug">{log.description}</p>
+                        <p className="text-xs text-roast-400 mt-1">by {log.performed_by}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )
+        }
       </section>
 
+      {/* Lazy modals */}
       {showIssue && (
-        <Suspense fallback={<ModalSpinner/>}>
+        <Suspense fallback={<ModalLoader/>}>
           <GuidedIssueForm
-            equipment={equipment as Equipment}
+            equipment={eq as unknown as Equipment}
             onClose={() => setShowIssue(false)}
             onSuccess={() => { setShowIssue(false); reload(); }}
           />
         </Suspense>
       )}
       {showLog && (
-        <Suspense fallback={<ModalSpinner/>}>
+        <Suspense fallback={<ModalLoader/>}>
           <ServiceRequestForm
-            equipment={equipment as Equipment}
+            equipment={eq as unknown as Equipment}
             onClose={() => setShowLog(false)}
             onSuccess={() => { setShowLog(false); reload(); }}
           />
