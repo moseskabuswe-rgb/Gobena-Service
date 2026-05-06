@@ -7,12 +7,12 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
     persistSession:     true,
     autoRefreshToken:   true,
-    detectSessionInUrl: true,   // must be true — Android Chrome needs this
-    storageKey:         'gobena-auth', // explicit key avoids conflicts
+    detectSessionInUrl: true,
+    storageKey:         'gobena-auth-v1',
   },
-  global: {
-    headers: {
-      'X-Client-Info': 'gobena-service/1.0',
-    },
+  // Disable realtime entirely — we don't use live subscriptions
+  // This prevents WebSocket connection attempts which slow down startup
+  realtime: {
+    params: { eventsPerSecond: 0 },
   },
 });
