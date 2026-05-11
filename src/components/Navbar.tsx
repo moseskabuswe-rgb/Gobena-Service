@@ -2,7 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext';
 import {
   GoMark, LayoutGrid, Wrench, ClipboardList, BookOpen,
-  ShieldCheck, LogOut, Store, Users, BarChart2, Bell,
+  LogOut, Store, BarChart2, Bell,
 } from './Icons';
 
 const PARTNER_TABS = [
