@@ -135,8 +135,8 @@ export default function ChecklistPage() {
   const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   return (
-    <div className="min-h-screen bg-stone-50 pb-24 md:pb-8">
-      <div className="max-w-lg mx-auto px-4 pt-6 space-y-5">
+    <div className="min-h-screen bg-stone-50 pb-24 md:pb-10">
+      <div className="max-w-5xl mx-auto px-4 md:px-8 md:px-8 pt-6 md:pt-8 space-y-5">
 
         {/* Header */}
         <div>

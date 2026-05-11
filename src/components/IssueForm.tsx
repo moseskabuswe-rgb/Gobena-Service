@@ -120,8 +120,8 @@ export default function IssueForm({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center p-0 md:p-4">
-      <div className="bg-white w-full md:max-w-lg md:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center p-0 md:p-8">
+      <div className="bg-white w-full md:max-w-xl md:rounded-2xl rounded-t-2xl max-h-[92vh] md:max-h-[85vh] flex flex-col md:shadow-xl">
 
         <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100">
           <div>

@@ -6,8 +6,8 @@ import { GoMark, Mail, AlertCircle } from '../components/Icons';
 // ─── Shared Layout ────────────────────────────────────────────────────────────
 function AuthShell({ children, title, sub }: { children: React.ReactNode; title: string; sub: string }) {
   return (
-    <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-sm">
+    <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center p-4 md:p-8">
+      <div className="w-full max-w-sm md:bg-white md:rounded-3xl md:shadow-sm md:border md:border-stone-100 md:p-8">
         <div className="flex flex-col items-center mb-8">
           <GoMark size={48} />
           <h1 className="mt-3 text-2xl font-bold text-stone-900 tracking-tight">{title}</h1>

@@ -71,8 +71,8 @@ export default function AdminIssuesPage() {
   });
 
   return (
-    <div className="min-h-screen bg-stone-50 pb-24 md:pb-8">
-      <div className="max-w-3xl mx-auto px-4 pt-6 space-y-5">
+    <div className="min-h-screen bg-stone-50 pb-24 md:pb-10">
+      <div className="max-w-5xl mx-auto px-4 md:px-8 pt-6 md:pt-8 space-y-5">
         <div>
           <h1 className="text-2xl font-bold text-stone-900">All issues</h1>
           <p className="text-sm text-stone-400 mt-0.5">{issues.filter(i => i.status === 'open').length} open · {issues.length} total</p>
@@ -132,7 +132,7 @@ export default function AdminIssuesPage() {
 
       {selected && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center">
-          <div className="bg-white w-full md:max-w-lg md:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col">
+          <div className="bg-white w-full md:max-w-xl md:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100">
               <h2 className="font-bold text-stone-900 truncate pr-4">{selected.title}</h2>
               <button onClick={() => setSelected(null)} className="p-2 rounded-xl text-stone-400 hover:bg-stone-100"><X size={18} /></button>

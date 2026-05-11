@@ -105,8 +105,8 @@ export default function MaintenancePage() {
   };
 
   return (
-    <div className="min-h-screen bg-stone-50 pb-24 md:pb-8">
-      <div className="max-w-lg mx-auto px-4 pt-6 space-y-5">
+    <div className="min-h-screen bg-stone-50 pb-24 md:pb-10">
+      <div className="max-w-5xl mx-auto px-4 md:px-8 md:px-8 pt-6 md:pt-8 space-y-5">
 
         <div className="flex items-center justify-between">
           <div>
@@ -173,7 +173,7 @@ export default function MaintenancePage() {
       {/* ── Log form modal ── */}
       {showForm && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center">
-          <div className="bg-white w-full md:max-w-lg md:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col">
+          <div className="bg-white w-full md:max-w-xl md:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100">
               <h2 className="font-bold text-stone-900">Log maintenance work</h2>
               <button onClick={() => setShowForm(false)} className="p-2 rounded-xl text-stone-400 hover:bg-stone-100">

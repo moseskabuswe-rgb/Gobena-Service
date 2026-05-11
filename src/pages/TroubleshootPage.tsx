@@ -174,8 +174,8 @@ export default function TroubleshootPage() {
   })).filter(cat => cat.items.length > 0);
 
   return (
-    <div className="min-h-screen bg-stone-50 pb-24 md:pb-8">
-      <div className="max-w-2xl mx-auto px-4 pt-6 space-y-5">
+    <div className="min-h-screen bg-stone-50 pb-24 md:pb-10">
+      <div className="max-w-5xl mx-auto px-4 md:px-8 pt-6 md:pt-8 space-y-5">
 
         <div>
           <h1 className="text-2xl font-bold text-stone-900">Troubleshoot</h1>

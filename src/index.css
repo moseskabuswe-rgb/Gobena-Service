@@ -3,24 +3,29 @@
 @tailwind utilities;
 
 @layer utilities {
+  /* Bottom padding for mobile nav bar */
   .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
 
-/* Smooth scroll globally */
 html {
   scroll-behavior: smooth;
 }
 
-/* Remove tap highlight on mobile */
 * {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Body font */
 body {
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Prevent horizontal overflow on mobile */
+  overflow-x: hidden;
+}
+
+/* Prevent any element from causing horizontal scroll */
+#root {
+  overflow-x: hidden;
 }
