@@ -66,20 +66,24 @@ export default function EquipmentDetailPage() {
     const run = async () => {
       const [eqResult, issueResult] = await Promise.all([
         fetchWithTimeout(
-          supabase
-            .from('equipment')
-            .select('id, name, brand, model, serial_number, install_date, last_service_date, next_service_date, status, notes, shop_id, shops:shop_id(name, city)')
-            .eq('id', id)
-            .single(),
+          Promise.resolve(
+            supabase
+              .from('equipment')
+              .select('id, name, brand, model, serial_number, install_date, last_service_date, next_service_date, status, notes, shop_id, shops:shop_id(name, city)')
+              .eq('id', id)
+              .single()
+          ),
           8000,
         ),
         fetchWithTimeout(
-          supabase
-            .from('issues')
-            .select('id, title, severity, status, created_at, description, shop_id, reported_by, reporter_name, reporter_email, resolution_notes, resolved_at, resolved_by, equipment_id')
-            .eq('equipment_id', id)
-            .order('created_at', { ascending: false })
-            .limit(10),
+          Promise.resolve(
+            supabase
+              .from('issues')
+              .select('id, title, severity, status, created_at, description, shop_id, reported_by, reporter_name, reporter_email, resolution_notes, resolved_at, resolved_by, equipment_id')
+              .eq('equipment_id', id)
+              .order('created_at', { ascending: false })
+              .limit(10)
+          ),
           8000,
         ),
       ]);
