@@ -2,26 +2,24 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import type { Shop } from '../types';
-import {
-  Plus, Store, Search, ChevronRight, CheckCircle, Clock, X, AlertCircle, MapPin, Mail, Phone,
-} from '../components/Icons';
+import { Plus, Store, Search, ChevronRight, X, AlertCircle, MapPin, Mail, Phone } from '../components/Icons';
 
 const statusConfig: Record<string, { label: string; cls: string }> = {
-  approved:  { label: 'Active',   cls: 'bg-green-100 text-green-700'  },
-  pending:   { label: 'Pending',  cls: 'bg-amber-100 text-amber-700'  },
-  suspended: { label: 'Suspended',cls: 'bg-red-100 text-red-700'      },
+  approved:  { label: 'Active',    cls: 'bg-green-100 text-green-700'  },
+  pending:   { label: 'Pending',   cls: 'bg-amber-100 text-amber-700'  },
+  suspended: { label: 'Suspended', cls: 'bg-red-100 text-red-700'      },
 };
 
 export default function AdminShopsPage() {
-  const [shops, setShops]         = useState<Shop[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [query, setQuery]         = useState('');
-  const [filter, setFilter]       = useState<'all' | 'approved' | 'pending' | 'suspended'>('all');
-  const [showAdd, setShowAdd]     = useState(false);
-  const [selected, setSelected]   = useState<Shop | null>(null);
+  const [shops, setShops]           = useState<Shop[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [query, setQuery]           = useState('');
+  const [filter, setFilter]         = useState<'all' | 'approved' | 'pending' | 'suspended'>('all');
+  const [showAdd, setShowAdd]       = useState(false);
+  const [selected, setSelected]     = useState<Shop | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError]         = useState('');
-  const [form, setForm]           = useState({
+  const [error, setError]           = useState('');
+  const [form, setForm] = useState({
     name: '', address: '', city: '', state: '',
     contact_name: '', contact_email: '', contact_phone: '', notes: '',
   });
@@ -30,23 +28,18 @@ export default function AdminShopsPage() {
   const loadShops = async () => {
     const { data } = await supabase
       .from('shops')
-      .select('id, name, address, city, state, contact_name, contact_email, contact_phone, status, approved_at, notes, created_at')
+      .select('id, name, address, city, state, contact_name, contact_email, contact_phone, status, approved_at, approved_by, notes, created_at')
       .order('created_at', { ascending: false });
-    setShops((data as Shop[]) || []);
+    setShops((data as unknown as Shop[]) || []);
     setLoading(false);
   };
-
   useEffect(() => { loadShops(); }, []);
 
   const handleAddShop = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSubmitting(true);
-    const { error: err } = await supabase.from('shops').insert({
-      ...form,
-      status: 'approved',
-      approved_at: new Date().toISOString(),
-    });
+    const { error: err } = await supabase.from('shops').insert({ ...form, status: 'approved', approved_at: new Date().toISOString() });
     if (err) { setError(err.message); setSubmitting(false); return; }
     await loadShops();
     setShowAdd(false);
@@ -55,10 +48,7 @@ export default function AdminShopsPage() {
   };
 
   const updateStatus = async (shopId: string, status: Shop['status']) => {
-    await supabase.from('shops').update({
-      status,
-      ...(status === 'approved' ? { approved_at: new Date().toISOString() } : {}),
-    }).eq('id', shopId);
+    await supabase.from('shops').update({ status, ...(status === 'approved' ? { approved_at: new Date().toISOString() } : {}) }).eq('id', shopId);
     setShops(prev => prev.map(s => s.id === shopId ? { ...s, status } : s));
     setSelected(prev => prev?.id === shopId ? { ...prev, status } : prev);
   };
@@ -89,32 +79,28 @@ export default function AdminShopsPage() {
             <h1 className="text-2xl font-bold text-stone-900">Shops</h1>
             <p className="text-sm text-stone-400 mt-0.5">{shops.filter(s => s.status === 'approved').length} active · {shops.filter(s => s.status === 'pending').length} pending</p>
           </div>
-          <button onClick={() => setShowAdd(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-stone-900 text-white text-sm font-semibold rounded-xl">
+          <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 px-4 py-2 bg-stone-900 text-white text-sm font-semibold rounded-xl">
             <Plus size={16} /> Add shop
           </button>
         </div>
 
-        {/* Search + filter */}
         <div className="relative">
           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
           <input type="search" placeholder="Search shops…" value={query} onChange={e => setQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 text-sm bg-white border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400" />
         </div>
+
         <div className="flex gap-2">
           {(['all','approved','pending','suspended'] as const).map(s => (
             <button key={s} onClick={() => setFilter(s)}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition border ${filter === s ? 'bg-stone-900 text-white border-stone-900' : 'bg-white text-stone-500 border-stone-200'}`}>
+              className={`px-3.5 py-1.5 rounded-full text-xs font-medium border transition ${filter === s ? 'bg-stone-900 text-white border-stone-900' : 'bg-white text-stone-500 border-stone-200'}`}>
               {s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
             </button>
           ))}
         </div>
 
-        {/* Shop list */}
         {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="w-6 h-6 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
-          </div>
+          <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" /></div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-12 text-stone-400">
             <Store size={32} className="mx-auto mb-3 opacity-30" />
@@ -124,7 +110,7 @@ export default function AdminShopsPage() {
           <div className="space-y-2">
             {filtered.map(shop => (
               <button key={shop.id} onClick={() => setSelected(shop)}
-                className="w-full bg-white rounded-2xl border border-stone-100 px-4 py-4 text-left hover:border-stone-200 hover:shadow-sm transition active:scale-[.99]">
+                className="w-full bg-white rounded-2xl border border-stone-100 px-4 py-4 text-left hover:border-stone-200 hover:shadow-sm transition">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-stone-100 rounded-xl flex items-center justify-center shrink-0">
                     <Store size={18} className="text-stone-400" />
@@ -146,74 +132,41 @@ export default function AdminShopsPage() {
         )}
       </div>
 
-      {/* Shop detail panel */}
       {selected && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center">
           <div className="bg-white w-full md:max-w-md md:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100">
               <h2 className="font-bold text-stone-900 truncate pr-4">{selected.name}</h2>
-              <button onClick={() => setSelected(null)} className="p-2 rounded-xl text-stone-400 hover:bg-stone-100">
-                <X size={18} />
-              </button>
+              <button onClick={() => setSelected(null)} className="p-2 rounded-xl text-stone-400 hover:bg-stone-100"><X size={18} /></button>
             </div>
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-              <div className="flex items-center gap-2">
-                <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${statusConfig[selected.status].cls}`}>
-                  {statusConfig[selected.status].label}
-                </span>
-                {selected.approved_at && (
-                  <span className="text-xs text-stone-400">Approved {new Date(selected.approved_at).toLocaleDateString()}</span>
-                )}
-              </div>
-
+              <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${statusConfig[selected.status].cls}`}>
+                {statusConfig[selected.status].label}
+              </span>
               <div className="space-y-3 text-sm">
                 {[
                   { Icon: MapPin, value: `${selected.address}, ${selected.city}, ${selected.state}` },
-                  { Icon: Mail,  value: selected.contact_email },
-                  { Icon: Phone, value: selected.contact_phone },
+                  { Icon: Mail,   value: selected.contact_email },
+                  { Icon: Phone,  value: selected.contact_phone },
                 ].filter(r => r.value).map(({ Icon, value }) => (
                   <div key={value} className="flex items-center gap-2.5 text-stone-600">
-                    <Icon size={15} className="text-stone-400 shrink-0" />
-                    {value}
+                    <Icon size={15} className="text-stone-400 shrink-0" />{value}
                   </div>
                 ))}
               </div>
-
-              {selected.notes && (
-                <p className="text-sm text-stone-500 bg-stone-50 rounded-xl px-3 py-2.5">{selected.notes}</p>
-              )}
-
-              {/* Actions */}
+              {selected.notes && <p className="text-sm text-stone-500 bg-stone-50 rounded-xl px-3 py-2.5">{selected.notes}</p>}
               <div className="space-y-2 pt-2">
-                <Link
-                  to={`/admin/shops/${selected.id}/equipment`}
-                  className="block w-full py-2.5 text-center text-sm font-semibold bg-stone-900 text-white rounded-xl hover:bg-stone-800 transition"
-                >
+                <Link to="/admin/equipment" className="block w-full py-2.5 text-center text-sm font-semibold bg-stone-900 text-white rounded-xl">
                   Manage equipment
                 </Link>
                 {selected.status === 'pending' && (
-                  <button
-                    onClick={() => updateStatus(selected.id, 'approved')}
-                    className="w-full py-2.5 text-sm font-semibold bg-green-600 text-white rounded-xl hover:bg-green-700 transition"
-                  >
-                    Approve shop
-                  </button>
+                  <button onClick={() => updateStatus(selected.id, 'approved')} className="w-full py-2.5 text-sm font-semibold bg-green-600 text-white rounded-xl">Approve shop</button>
                 )}
                 {selected.status === 'approved' && (
-                  <button
-                    onClick={() => updateStatus(selected.id, 'suspended')}
-                    className="w-full py-2.5 text-sm font-semibold bg-white text-red-600 border border-red-200 rounded-xl hover:bg-red-50 transition"
-                  >
-                    Suspend shop
-                  </button>
+                  <button onClick={() => updateStatus(selected.id, 'suspended')} className="w-full py-2.5 text-sm font-semibold bg-white text-red-600 border border-red-200 rounded-xl">Suspend shop</button>
                 )}
                 {selected.status === 'suspended' && (
-                  <button
-                    onClick={() => updateStatus(selected.id, 'approved')}
-                    className="w-full py-2.5 text-sm font-semibold bg-green-600 text-white rounded-xl hover:bg-green-700 transition"
-                  >
-                    Reinstate shop
-                  </button>
+                  <button onClick={() => updateStatus(selected.id, 'approved')} className="w-full py-2.5 text-sm font-semibold bg-green-600 text-white rounded-xl">Reinstate shop</button>
                 )}
               </div>
             </div>
@@ -221,15 +174,12 @@ export default function AdminShopsPage() {
         </div>
       )}
 
-      {/* Add shop modal */}
       {showAdd && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center">
           <div className="bg-white w-full md:max-w-lg md:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100">
               <h2 className="font-bold text-stone-900">Add shop</h2>
-              <button onClick={() => setShowAdd(false)} className="p-2 rounded-xl text-stone-400 hover:bg-stone-100">
-                <X size={18} />
-              </button>
+              <button onClick={() => setShowAdd(false)} className="p-2 rounded-xl text-stone-400 hover:bg-stone-100"><X size={18} /></button>
             </div>
             <form onSubmit={handleAddShop} className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
               <Field label="Shop name" value={form.name} onChange={set('name')} placeholder="The Corner Grind" />
@@ -243,14 +193,10 @@ export default function AdminShopsPage() {
               <Field label="Contact phone" type="tel" value={form.contact_phone} onChange={set('contact_phone')} placeholder="+1 (555) 000-0000" />
               <div>
                 <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wide mb-1.5">Notes</label>
-                <textarea value={form.notes} onChange={e => set('notes')(e.target.value)} rows={2} placeholder="Any internal notes…"
+                <textarea value={form.notes} onChange={e => set('notes')(e.target.value)} rows={2}
                   className="w-full px-3.5 py-2.5 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none" />
               </div>
-              {error && (
-                <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 rounded-xl px-3.5 py-3">
-                  <AlertCircle size={14} />{error}
-                </div>
-              )}
+              {error && <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 rounded-xl px-3.5 py-3"><AlertCircle size={14} />{error}</div>}
               <button type="submit" disabled={submitting}
                 className="w-full py-3 bg-stone-900 text-white font-semibold text-sm rounded-xl hover:bg-stone-800 transition disabled:opacity-50">
                 {submitting ? 'Adding…' : 'Add shop (auto-approved)'}

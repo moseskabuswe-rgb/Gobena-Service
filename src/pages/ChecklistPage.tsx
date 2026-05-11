@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../lib/AuthContext';
-import type { ChecklistItem, ChecklistCompletion, ChecklistType } from '../types';
-import { CheckCircle, Circle, ClipboardList, Clock } from '../components/Icons';
+import type { ChecklistItem, ChecklistType } from '../types';
+import { CheckCircle, Circle, Clock } from '../components/Icons';
 
 // ─── Checklist definitions ────────────────────────────────────────────────────
 const CHECKLISTS: Record<ChecklistType, { label: string; items: Omit<ChecklistItem, 'completed' | 'completed_at'>[] }> = {

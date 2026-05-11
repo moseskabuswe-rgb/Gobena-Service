@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import type { Equipment } from '../types';
-import { GoMark } from '../components/Icons';
+
 
 // Minimal QR code generator using a public API so no npm dependency needed
 function QRImg({ url, size = 200 }: { url: string; size?: number }) {
@@ -33,7 +33,7 @@ export default function QRPrintPage() {
       .eq('id', id)
       .single()
       .then(({ data }) => {
-        setEq(data as Equipment);
+        setEq(data as unknown as Equipment);
         setLoading(false);
         // Auto-print after a short delay for the QR to load
         setTimeout(() => window.print(), 800);

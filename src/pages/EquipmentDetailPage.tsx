@@ -4,8 +4,8 @@ import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../lib/AuthContext';
 import type { Equipment, Issue } from '../types';
 import {
-  ArrowLeft, Wrench, Calendar, Hash, Tag, AlertCircle,
-  CheckCircle, XCircle, Plus, Clock, ChevronRight, Printer,
+  ArrowLeft, Calendar, Hash, AlertCircle,
+  CheckCircle, XCircle, Plus, Clock, Printer,
 } from '../components/Icons';
 
 const IssueForm = lazy(() => import('../components/IssueForm'));
@@ -27,7 +27,7 @@ const issueStatusLabel: Record<string, string> = {
 
 export default function EquipmentDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { user, profile } = useAuth();
+  const { profile } = useAuth();
   const navigate = useNavigate();
 
   const [eq, setEq]             = useState<Equipment | null>(null);
@@ -60,8 +60,8 @@ export default function EquipmentDetailPage() {
         ]);
 
         if (eqRes.error) { setError('Equipment not found. This QR code may be invalid.'); }
-        else { setEq(eqRes.data as Equipment); }
-        setIssues((issueRes.data as Issue[]) || []);
+        else { setEq(eqRes.data as unknown as Equipment); }
+        setIssues((issueRes.data as unknown as Issue[]) || []);
       } catch (e: unknown) {
         if (e instanceof Error && e.name === 'AbortError') {
           setError('Request timed out. Please check your connection and try again.');

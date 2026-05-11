@@ -4,11 +4,10 @@ import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../lib/AuthContext';
 import type { Issue, Equipment } from '../types';
 import {
-  AlertCircle, Wrench, ClipboardList, BookOpen, CheckCircle,
+  AlertCircle, Wrench, ClipboardList, BookOpen,
   ChevronRight, Coffee, Clock, TrendingUp, Zap, Calendar,
 } from '../components/Icons';
 
-// ─── Status Chip ─────────────────────────────────────────────────────────────
 const severityColors: Record<string, string> = {
   critical: 'bg-red-100 text-red-700 border-red-200',
   high:     'bg-orange-100 text-orange-700 border-orange-200',
@@ -26,7 +25,6 @@ const eqStatusLabel: Record<string, string> = {
   out_of_service:  'Out of service',
 };
 
-// ─── Tip of the Day ──────────────────────────────────────────────────────────
 const TIPS = [
   'Backflush your espresso machine daily to prevent oil buildup and bitter shots.',
   'Descale your equipment every 3 months — hard water is the silent killer of machines.',
@@ -34,15 +32,13 @@ const TIPS = [
   'Check your grinder burrs every 6 months — dull burrs cause inconsistent extraction.',
   'Keep drip trays clean. Bacteria in standing water affects flavor and hygiene scores.',
   'Log every issue early, even minor ones. Small problems caught early save big repair costs.',
-  'Water filter cartridges should be replaced every 6 months or 500 gallons, whichever comes first.',
+  'Water filter cartridges should be replaced every 6 months or 500 gallons.',
 ];
-
 function tipOfDay() {
   const d = new Date();
   return TIPS[(d.getDate() + d.getMonth()) % TIPS.length];
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const { profile, shop } = useAuth();
   const [issues, setIssues]       = useState<Issue[]>([]);
@@ -54,26 +50,25 @@ export default function DashboardPage() {
     Promise.all([
       supabase
         .from('issues')
-        .select('id, title, severity, status, created_at, equipment_id, equipment:equipment_id(name)')
+        .select('id, title, severity, status, created_at, equipment_id, shop_id, reported_by, reporter_name, reporter_email, description, resolution_notes, resolved_at, resolved_by, equipment:equipment_id(name)')
         .eq('shop_id', shop.id)
         .in('status', ['open', 'in_progress'])
         .order('created_at', { ascending: false })
         .limit(5),
       supabase
         .from('equipment')
-        .select('id, name, brand, model, status, last_service_date, next_service_date')
+        .select('id, name, brand, model, status, last_service_date, next_service_date, shop_id, serial_number, install_date, notes, created_at')
         .eq('shop_id', shop.id)
         .order('name'),
     ]).then(([issueRes, eqRes]) => {
-      setIssues((issueRes.data as Issue[]) || []);
-      setEquipment((eqRes.data as Equipment[]) || []);
+      setIssues((issueRes.data as unknown as Issue[]) || []);
+      setEquipment((eqRes.data as unknown as Equipment[]) || []);
       setLoading(false);
     });
   }, [shop?.id]);
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-
   const needsAttention = equipment.filter(e => e.status !== 'operational').length;
   const openIssues = issues.filter(i => i.status === 'open').length;
   const upcomingService = equipment.filter(e => {
@@ -99,7 +94,7 @@ export default function DashboardPage() {
           </div>
           <h2 className="text-lg font-bold text-stone-900 mb-2">Approval pending</h2>
           <p className="text-sm text-stone-500 leading-relaxed">
-            Your shop is waiting for Gobena to approve your account. You'll be notified once you're approved.
+            Your shop is waiting for Gobena to approve your account. You'll be notified once approved.
           </p>
         </div>
       </div>
@@ -110,7 +105,6 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-stone-50 pb-24 md:pb-8">
       <div className="max-w-2xl mx-auto px-4 pt-6 space-y-5">
 
-        {/* ── Header ── */}
         <div>
           <p className="text-xs text-stone-400 font-medium uppercase tracking-widest">{shop?.name}</p>
           <h1 className="text-2xl font-bold text-stone-900 mt-0.5">
@@ -118,7 +112,6 @@ export default function DashboardPage() {
           </h1>
         </div>
 
-        {/* ── Alert banner if issues ── */}
         {(needsAttention > 0 || openIssues > 0) && (
           <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3.5 flex items-start gap-3">
             <AlertCircle size={18} className="text-amber-600 mt-0.5 shrink-0" />
@@ -134,12 +127,11 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* ── Quick stats ── */}
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: 'Equipment',     value: equipment.length, Icon: Coffee,     color: 'text-stone-600' },
-            { label: 'Open issues',   value: openIssues,       Icon: AlertCircle,color: openIssues > 0 ? 'text-red-500' : 'text-stone-400' },
-            { label: 'Service soon',  value: upcomingService,  Icon: Calendar,   color: upcomingService > 0 ? 'text-amber-600' : 'text-stone-400' },
+            { label: 'Equipment',    value: equipment.length, Icon: Coffee,      color: 'text-stone-600' },
+            { label: 'Open issues',  value: openIssues,       Icon: AlertCircle, color: openIssues > 0 ? 'text-red-500' : 'text-stone-400' },
+            { label: 'Service soon', value: upcomingService,  Icon: Calendar,    color: upcomingService > 0 ? 'text-amber-600' : 'text-stone-400' },
           ].map(({ label, value, Icon, color }) => (
             <div key={label} className="bg-white rounded-2xl p-4 border border-stone-100 text-center">
               <Icon size={20} className={`mx-auto mb-1.5 ${color}`} />
@@ -149,21 +141,17 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {/* ── Quick actions ── */}
         <div>
           <p className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-3">Quick actions</p>
           <div className="grid grid-cols-2 gap-3">
             {[
-              { to: '/equipment',   label: 'View equipment',    sub: 'Machines & status',   Icon: Wrench,       bg: 'bg-stone-900 text-white' },
-              { to: '/checklist',   label: 'Daily checklist',   sub: 'Opening & closing',   Icon: ClipboardList,bg: 'bg-amber-600 text-white'  },
-              { to: '/maintenance', label: 'Log maintenance',   sub: 'Record service work',  Icon: TrendingUp,   bg: 'bg-white border border-stone-200' },
-              { to: '/guide',       label: 'Troubleshoot',      sub: 'Fix common issues',   Icon: BookOpen,     bg: 'bg-white border border-stone-200' },
+              { to: '/equipment',   label: 'View equipment',  sub: 'Machines & status',  Icon: Wrench,       bg: 'bg-stone-900 text-white' },
+              { to: '/checklist',   label: 'Daily checklist', sub: 'Opening & closing',  Icon: ClipboardList,bg: 'bg-amber-600 text-white'  },
+              { to: '/maintenance', label: 'Log maintenance', sub: 'Record service work', Icon: TrendingUp,   bg: 'bg-white border border-stone-200 text-stone-800' },
+              { to: '/guide',       label: 'Troubleshoot',    sub: 'Fix common issues',  Icon: BookOpen,     bg: 'bg-white border border-stone-200 text-stone-800' },
             ].map(({ to, label, sub, Icon, bg }) => (
-              <Link
-                key={to}
-                to={to}
-                className={`${bg} rounded-2xl p-4 flex flex-col gap-3 hover:opacity-90 active:scale-[.98] transition`}
-              >
+              <Link key={to} to={to}
+                className={`${bg} rounded-2xl p-4 flex flex-col gap-3 hover:opacity-90 active:scale-[.98] transition`}>
                 <Icon size={20} />
                 <div>
                   <p className="text-sm font-semibold leading-tight">{label}</p>
@@ -174,7 +162,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* ── Equipment status list ── */}
         {equipment.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-3">
@@ -183,11 +170,8 @@ export default function DashboardPage() {
             </div>
             <div className="bg-white rounded-2xl border border-stone-100 divide-y divide-stone-50">
               {equipment.map(eq => (
-                <Link
-                  key={eq.id}
-                  to={`/equipment/${eq.id}`}
-                  className="flex items-center gap-3 px-4 py-3.5 hover:bg-stone-50 transition first:rounded-t-2xl last:rounded-b-2xl"
-                >
+                <Link key={eq.id} to={`/equipment/${eq.id}`}
+                  className="flex items-center gap-3 px-4 py-3.5 hover:bg-stone-50 transition first:rounded-t-2xl last:rounded-b-2xl">
                   <Wrench size={16} className="text-stone-300 shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-stone-800 truncate">{eq.name}</p>
@@ -203,12 +187,9 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* ── Open issues ── */}
         {issues.length > 0 && (
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-bold text-stone-400 uppercase tracking-widest">Open issues</p>
-            </div>
+            <p className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-3">Open issues</p>
             <div className="space-y-2">
               {issues.map(issue => (
                 <div key={issue.id} className="bg-white rounded-2xl border border-stone-100 px-4 py-3.5">
@@ -216,7 +197,6 @@ export default function DashboardPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-stone-800">{issue.title}</p>
                       <p className="text-xs text-stone-400 mt-0.5">
-                        {(issue as unknown as { equipment?: { name: string } }).equipment?.name} ·{' '}
                         {new Date(issue.created_at).toLocaleDateString()}
                       </p>
                     </div>
@@ -230,7 +210,6 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* ── Tip ── */}
         <div className="bg-stone-900 rounded-2xl px-4 py-4 flex gap-3">
           <Zap size={16} className="text-amber-400 mt-0.5 shrink-0" />
           <div>

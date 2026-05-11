@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../lib/AuthContext';
 import type { Equipment } from '../types';
-import { Wrench, Search, ChevronRight, Calendar, Hash, AlertCircle, CheckCircle, XCircle } from '../components/Icons';
+import { Wrench, Search, ChevronRight, Calendar, Hash, AlertCircle, CheckCircle } from '../components/Icons';
 
 const STATUS_FILTER = ['all', 'operational', 'needs_attention', 'out_of_service'] as const;
 const statusLabel: Record<string, string> = {
@@ -14,12 +14,6 @@ const statusColor: Record<string, string> = {
   needs_attention: 'bg-amber-100 text-amber-700',
   out_of_service:  'bg-red-100 text-red-700',
 };
-const StatusIcon = ({ status }: { status: string }) => {
-  if (status === 'operational')     return <CheckCircle size={14} className="text-green-600" />;
-  if (status === 'out_of_service')  return <XCircle size={14} className="text-red-500" />;
-  return <AlertCircle size={14} className="text-amber-500" />;
-};
-
 export default function EquipmentListPage() {
   const { shop } = useAuth();
   const [equipment, setEquipment] = useState<Equipment[]>([]);

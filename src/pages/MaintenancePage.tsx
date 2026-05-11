@@ -42,8 +42,8 @@ export default function MaintenancePage() {
         .order('performed_at', { ascending: false })
         .limit(20),
     ]).then(([eqRes, logRes]) => {
-      setEquipment((eqRes.data as Equipment[]) || []);
-      setLogs((logRes.data as (MaintenanceLog & { equipment?: { name: string } })[]) || []);
+      setEquipment((eqRes.data as unknown as Equipment[]) || []);
+      setLogs((logRes.data as unknown as (MaintenanceLog & { equipment?: { name: string } })[]) || []);
       setLoading(false);
     });
   }, [shop?.id]);
@@ -87,7 +87,7 @@ export default function MaintenancePage() {
       .eq('shop_id', shop!.id)
       .order('performed_at', { ascending: false })
       .limit(20);
-    setLogs((data as (MaintenanceLog & { equipment?: { name: string } })[]) || []);
+    setLogs((data as unknown as (MaintenanceLog & { equipment?: { name: string } })[]) || []);
 
     setTimeout(() => {
       setSuccess(false);
