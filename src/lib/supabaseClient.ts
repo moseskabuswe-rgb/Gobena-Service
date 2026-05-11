@@ -1,18 +1,24 @@
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
-export const supabase = createClient(supabaseUrl, supabaseKey, {
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Missing Supabase environment variables');
+}
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession:     true,
-    autoRefreshToken:   true,
+    // Use localStorage so sessions persist across QR-scanned tabs on Android
+    storage: window.localStorage,
+    persistSession: true,
+    // detectSessionInUrl must be true for email magic links / oauth
     detectSessionInUrl: true,
-    storageKey:         'gobena-auth-v1',
+    autoRefreshToken: true,
+    // Flowkey: PKCE is more reliable than implicit flow on mobile browsers
+    flowType: 'pkce',
   },
-  // Disable realtime entirely — we don't use live subscriptions
-  // This prevents WebSocket connection attempts which slow down startup
-  realtime: {
-    params: { eventsPerSecond: 0 },
+  global: {
+    headers: { 'x-client-info': 'gobena-service/2.0' },
   },
 });
