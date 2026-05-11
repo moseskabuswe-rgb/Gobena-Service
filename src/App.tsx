@@ -25,14 +25,10 @@ function Spinner() {
   );
 }
 
-// Wait for BOTH user AND profile before making any routing decisions.
-// This is the root fix for the admin redirect bug — profile is null briefly
-// after login even though user exists, and we must not route until it resolves.
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, profile, loading } = useAuth();
   if (loading) return <Spinner />;
   if (!user) return <Navigate to="/login" replace />;
-  // Profile is still loading — keep showing spinner rather than rendering prematurely
   if (!profile) return <Spinner />;
   return <>{children}</>;
 }
@@ -41,7 +37,6 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
   const { user, profile, loading } = useAuth();
   if (loading) return <Spinner />;
   if (!user) return <Navigate to="/login" replace />;
-  // Wait for profile — don't redirect until we actually know the role
   if (!profile) return <Spinner />;
   if (profile.role !== 'admin') return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
@@ -54,12 +49,13 @@ function AppRoutes() {
   const isPrintPage = location.pathname.includes('/qr');
   const showNav = !!user && !!profile && !isPrintPage;
 
-  // Don't compute defaultPath until profile is loaded — avoids flicker to /dashboard
-  const defaultPath = loading || !profile
-    ? null
-    : profile.role === 'admin' ? '/admin' : '/dashboard';
+  const defaultPath = profile?.role === 'admin' ? '/admin' : '/dashboard';
 
-  if (loading) return <Spinner />;
+  // Only block on loading for authenticated routes — public pages render immediately
+  const isPublicRoute = location.pathname.startsWith('/equipment/') ||
+    location.pathname === '/login' || location.pathname === '/register';
+
+  if (loading && !isPublicRoute) return <Spinner />;
 
   return (
     <div className="min-h-screen bg-stone-50">
@@ -67,10 +63,10 @@ function AppRoutes() {
       <Suspense fallback={<Spinner />}>
         <Routes>
           {/* Auth */}
-          <Route path="/login"    element={defaultPath ? <Navigate to={defaultPath} replace /> : <LoginPage />} />
-          <Route path="/register" element={defaultPath ? <Navigate to={defaultPath} replace /> : <RegisterPage />} />
+          <Route path="/login"    element={user && profile ? <Navigate to={defaultPath} replace /> : <LoginPage />} />
+          <Route path="/register" element={user && profile ? <Navigate to={defaultPath} replace /> : <RegisterPage />} />
 
-          {/* Public — QR scan, no login needed */}
+          {/* Public — QR scan, no login needed, loads independently */}
           <Route path="/equipment/:id" element={<EquipmentDetailPage />} />
 
           {/* Partner */}
@@ -89,16 +85,16 @@ function AppRoutes() {
           <Route path="/admin/equipment" element={<RequireAdmin><AdminEquipmentPage /></RequireAdmin>} />
           <Route path="/admin/issues"    element={<RequireAdmin><AdminIssuesPage /></RequireAdmin>} />
 
-          {/* Root + catch-all — wait for profile before redirecting */}
+          {/* Root + catch-all */}
           <Route path="/" element={
             !user ? <Navigate to="/login" replace /> :
             !profile ? <Spinner /> :
-            <Navigate to={defaultPath!} replace />
+            <Navigate to={defaultPath} replace />
           } />
           <Route path="*" element={
             !user ? <Navigate to="/login" replace /> :
             !profile ? <Spinner /> :
-            <Navigate to={defaultPath!} replace />
+            <Navigate to={defaultPath} replace />
           } />
         </Routes>
       </Suspense>
