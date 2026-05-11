@@ -9,14 +9,18 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    // Use localStorage so sessions persist across QR-scanned tabs on Android
     storage: window.localStorage,
     persistSession: true,
-    // detectSessionInUrl must be true for email magic links / oauth
-    detectSessionInUrl: true,
+    // implicit flow: no code exchange, no sessionStorage dependency
+    // PKCE caused Android Chrome to stall on QR-scanned tabs because
+    // the code_verifier lives in sessionStorage which isn't shared across tabs
+    flowType: 'implicit',
+    // false: don't try to parse auth tokens from the URL on every page load.
+    // Equipment pages are public — there's never an auth token in their URL.
+    // Having this true caused getSession() to hang on Android while it tried
+    // to exchange a non-existent code from the URL.
+    detectSessionInUrl: false,
     autoRefreshToken: true,
-    // Flowkey: PKCE is more reliable than implicit flow on mobile browsers
-    flowType: 'pkce',
   },
   global: {
     headers: { 'x-client-info': 'gobena-service/2.0' },
