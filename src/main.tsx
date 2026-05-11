@@ -1,29 +1,10 @@
-import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
-import './index.css';
+import React from 'react';
+import ReactDOM from 'react-dom/client';
 import App from './App';
+import './index.css';
 
-const root = createRoot(document.getElementById('root')!);
-
-root.render(
-  <StrictMode>
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
     <App />
-  </StrictMode>
+  </React.StrictMode>,
 );
-
-// Hide the inline splash screen once React has rendered
-// Using requestAnimationFrame ensures we wait for actual paint
-requestAnimationFrame(() => {
-  requestAnimationFrame(() => {
-    if (typeof (window as any).__appReady === 'function') {
-      (window as any).__appReady();
-    }
-  });
-});
-
-// Mark fonts as loaded for CSS font-family swap
-if (document.fonts) {
-  document.fonts.ready.then(() => {
-    document.documentElement.classList.add('fonts-loaded');
-  });
-}

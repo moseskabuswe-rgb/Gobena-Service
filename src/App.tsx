@@ -3,114 +3,89 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { AuthProvider, useAuth } from './lib/AuthContext';
 import Navbar from './components/Navbar';
 
-import EquipmentDetailPage from './pages/EquipmentDetailPage';
-import LoginPage           from './pages/LoginPage';
-
-const SignupPage            = lazy(() => import('./pages/SignupPage'));
+// ─── Lazy page imports ────────────────────────────────────────────────────────
+const LoginPage             = lazy(() => import('./pages/AuthPages').then(m => ({ default: m.LoginPage })));
+const RegisterPage          = lazy(() => import('./pages/AuthPages').then(m => ({ default: m.RegisterPage })));
 const DashboardPage         = lazy(() => import('./pages/DashboardPage'));
 const EquipmentListPage     = lazy(() => import('./pages/EquipmentListPage'));
-const AdminDashboardPage    = lazy(() => import('./pages/AdminDashboardPage'));
-const QRPrintPage           = lazy(() => import('./pages/QRPrintPage'));
-const TroubleshootPage      = lazy(() => import('./pages/TroubleshootPage'));
+const EquipmentDetailPage   = lazy(() => import('./pages/EquipmentDetailPage'));
 const ChecklistPage         = lazy(() => import('./pages/ChecklistPage'));
-const AdminAddShopPage      = lazy(() => import('./pages/AdminAddShopPage'));
-const AdminAddEquipmentPage = lazy(() => import('./pages/AdminAddEquipmentPage'));
+const MaintenancePage       = lazy(() => import('./pages/MaintenancePage'));
+const TroubleshootPage      = lazy(() => import('./pages/TroubleshootPage'));
+const QRPrintPage           = lazy(() => import('./pages/QRPrintPage'));
+const AdminDashboardPage    = lazy(() => import('./pages/AdminDashboardPage'));
+const AdminShopsPage        = lazy(() => import('./pages/AdminShopsPage'));
+const AdminEquipmentPage    = lazy(() => import('./pages/AdminEquipmentPage'));
+const AdminIssuesPage       = lazy(() => import('./pages/AdminIssuesPage'));
 
+// ─── Loading spinner ──────────────────────────────────────────────────────────
 function Spinner() {
   return (
-    <div className="min-h-screen bg-foam flex items-center justify-center">
-      <svg viewBox="0 0 40 40" className="w-10 h-10 animate-spin" fill="none">
-        <circle cx="20" cy="20" r="16" stroke="#e8ddd1" strokeWidth="3"/>
-        <path d="M20 4 A16 16 0 0 1 36 20" stroke="#7d4e22" strokeWidth="3" strokeLinecap="round"/>
-      </svg>
+    <div className="min-h-screen flex items-center justify-center bg-stone-50">
+      <div className="w-7 h-7 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
     </div>
   );
 }
 
-function RequireAuth({ children }: { children: JSX.Element }) {
+// ─── Auth guards ──────────────────────────────────────────────────────────────
+function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
-  const location = useLocation();
-  if (loading) return <Spinner/>;
-  if (!user) {
-    sessionStorage.setItem('gobena_redirect', location.pathname + location.search);
-    return <Navigate to="/login" replace/>;
-  }
-  return children;
+  if (loading) return <Spinner />;
+  if (!user) return <Navigate to="/login" replace />;
+  return <>{children}</>;
 }
 
-function RequireAdmin({ children }: { children: JSX.Element }) {
+function RequireAdmin({ children }: { children: React.ReactNode }) {
   const { user, profile, loading } = useAuth();
-  if (loading)                 return <Spinner/>;
-  if (!user)                   return <Navigate to="/login" replace/>;
-  if (!profile)                return <Spinner/>;
-  if (profile.role !== 'admin') return <Navigate to="/dashboard" replace/>;
-  return children;
+  if (loading) return <Spinner />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (profile && profile.role !== 'admin') return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
 }
 
+// ─── Route layout ─────────────────────────────────────────────────────────────
 function AppRoutes() {
-  const { user, profile } = useAuth();
-  // NO loading check here — this was the bug.
-  // Public routes must render immediately.
-  // Protected routes handle their own loading via RequireAuth/RequireAdmin.
+  const { user, profile, loading } = useAuth();
+  const location = useLocation();
 
-  const location    = useLocation();
-  const isPrintPage = location.pathname.endsWith('/qr');
-  const isPartner   = profile?.role === 'partner';
-  const showNav     = !!user && !isPrintPage;
+  const isPrintPage = location.pathname.includes('/qr');
+  const showNav = user && profile && !isPrintPage;
 
-  // Only redirect from / once we know who the user is
-  // If profile is null but user exists, wait — don't redirect yet
-  const getDefault = () => {
-    if (!user) return '/login';
-    if (!profile) return null; // still loading profile
-    return profile.role === 'admin' ? '/admin' : '/dashboard';
-  };
-  const defaultPath = getDefault();
+  const defaultPath = profile?.role === 'admin' ? '/admin' : '/dashboard';
+
+  if (loading) return <Spinner />;
 
   return (
-    <div className={`min-h-screen bg-foam${showNav && isPartner ? ' tab-bar-safe md:pb-0' : ''}`}>
-      {showNav && <Navbar/>}
-      <Suspense fallback={<Spinner/>}>
+    <div className="min-h-screen bg-stone-50">
+      {showNav && <Navbar />}
+      <Suspense fallback={<Spinner />}>
         <Routes>
+          {/* Public auth routes */}
+          <Route path="/login"    element={user ? <Navigate to={defaultPath} replace /> : <LoginPage />} />
+          <Route path="/register" element={user ? <Navigate to={defaultPath} replace /> : <RegisterPage />} />
 
-          {/* Public — no auth required */}
-          <Route path="/login"
-            element={defaultPath ? <Navigate to={defaultPath}/> : <LoginPage/>}/>
-          <Route path="/signup"
-            element={defaultPath ? <Navigate to={defaultPath}/> : <SignupPage/>}/>
+          {/* Public equipment page (QR scan target) — no auth required */}
+          <Route path="/equipment/:id" element={<EquipmentDetailPage />} />
 
-          {/* Equipment detail — always public, loads regardless of auth */}
-          <Route path="/equipment/:id" element={<EquipmentDetailPage/>}/>
+          {/* Partner routes */}
+          <Route path="/dashboard"   element={<RequireAuth><DashboardPage /></RequireAuth>} />
+          <Route path="/equipment"   element={<RequireAuth><EquipmentListPage /></RequireAuth>} />
+          <Route path="/checklist"   element={<RequireAuth><ChecklistPage /></RequireAuth>} />
+          <Route path="/maintenance" element={<RequireAuth><MaintenancePage /></RequireAuth>} />
+          <Route path="/guide"       element={<RequireAuth><TroubleshootPage /></RequireAuth>} />
 
-          {/* Partner */}
-          <Route path="/dashboard"
-            element={<RequireAuth><DashboardPage/></RequireAuth>}/>
-          <Route path="/equipment"
-            element={<RequireAuth><EquipmentListPage/></RequireAuth>}/>
-          <Route path="/troubleshoot"
-            element={<RequireAuth><TroubleshootPage/></RequireAuth>}/>
-          <Route path="/checklist"
-            element={<RequireAuth><ChecklistPage/></RequireAuth>}/>
+          {/* QR print — admin only */}
+          <Route path="/equipment/:id/qr" element={<RequireAdmin><QRPrintPage /></RequireAdmin>} />
 
-          {/* QR print */}
-          <Route path="/equipment/:id/qr"
-            element={<RequireAdmin><QRPrintPage/></RequireAdmin>}/>
+          {/* Admin routes */}
+          <Route path="/admin"           element={<RequireAdmin><AdminDashboardPage /></RequireAdmin>} />
+          <Route path="/admin/shops"     element={<RequireAdmin><AdminShopsPage /></RequireAdmin>} />
+          <Route path="/admin/equipment" element={<RequireAdmin><AdminEquipmentPage /></RequireAdmin>} />
+          <Route path="/admin/issues"    element={<RequireAdmin><AdminIssuesPage /></RequireAdmin>} />
 
-          {/* Admin */}
-          <Route path="/admin"
-            element={<RequireAdmin><AdminDashboardPage/></RequireAdmin>}/>
-          <Route path="/admin/add-shop"
-            element={<RequireAdmin><AdminAddShopPage/></RequireAdmin>}/>
-          <Route path="/admin/add-equipment"
-            element={<RequireAdmin><AdminAddEquipmentPage/></RequireAdmin>}/>
-
-          {/* Catch-all — only redirect once we know the destination */}
-          <Route path="*"
-            element={defaultPath
-              ? <Navigate to={defaultPath} replace/>
-              : <Spinner/>}
-          />
-
+          {/* Root + catch-all */}
+          <Route path="/"  element={<Navigate to={user ? defaultPath : '/login'} replace />} />
+          <Route path="*"  element={<Navigate to={user ? defaultPath : '/login'} replace />} />
         </Routes>
       </Suspense>
     </div>
@@ -121,7 +96,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppRoutes/>
+        <AppRoutes />
       </AuthProvider>
     </BrowserRouter>
   );
