@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../lib/AuthContext';
 import type { Equipment } from '../types';
-import { Wrench, Search, ChevronRight, Calendar, Hash, AlertCircle, CheckCircle } from '../components/Icons';
+import { Wrench, Search, ChevronRight, Calendar, Hash } from '../components/Icons';
 
 const STATUS_FILTER = ['all', 'operational', 'needs_attention', 'out_of_service'] as const;
 const statusLabel: Record<string, string> = {

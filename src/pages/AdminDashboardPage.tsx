@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 import type { Issue, Shop, Equipment } from '../types';
 import {
   Store, AlertCircle, CheckCircle, Clock, Wrench,
-  ChevronRight, RefreshCw, Zap, Bell, BarChart2,
+  ChevronRight, RefreshCw, Zap, Bell,
 } from '../components/Icons';
 
 const severityColor: Record<string, string> = {
