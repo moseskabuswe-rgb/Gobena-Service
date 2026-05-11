@@ -1,105 +1,107 @@
-export type UserRole = 'admin' | 'partner';
+// ─── Core Entity Types ───────────────────────────────────────────────────────
 
-export interface Profile {
-  id: string;
-  full_name: string | null;
-  role: UserRole;
-  shop_id: string | null;
-  created_at: string;
-}
+export type ShopStatus = 'pending' | 'approved' | 'suspended';
+export type EquipmentStatus = 'operational' | 'needs_attention' | 'out_of_service';
+export type IssueSeverity = 'low' | 'medium' | 'high' | 'critical';
+export type IssueStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
+export type UserRole = 'admin' | 'partner';
+export type ChecklistType = 'opening' | 'closing' | 'weekly';
 
 export interface Shop {
   id: string;
   name: string;
-  address: string | null;
-  city: string | null;
-  state: string | null;
-  zip: string | null;
-  phone: string | null;
-  email: string | null;
-  contact_name: string | null;
-  contact_email: string | null;
-  contact_phone: string | null;
+  address: string;
+  city: string;
+  state: string;
+  contact_name: string;
+  contact_email: string;
+  contact_phone: string;
+  status: ShopStatus;
+  approved_at: string | null;
+  approved_by: string | null;
   notes: string | null;
   created_at: string;
 }
-
-export type EquipmentStatus   = 'good' | 'needs_attention' | 'urgent';
-export type EquipmentCategory =
-  | 'Espresso Machine'
-  | 'Grinder'
-  | 'Brewer'
-  | 'Refrigeration'
-  | 'Water System'
-  | 'Other';
 
 export interface Equipment {
   id: string;
   shop_id: string;
   name: string;
-  model: string | null;
+  brand: string;
+  model: string;
   serial_number: string | null;
-  category: EquipmentCategory;
-  status: EquipmentStatus;
   install_date: string | null;
-  last_service: string | null;
+  last_service_date: string | null;
+  next_service_date: string | null;
+  status: EquipmentStatus;
   notes: string | null;
   created_at: string;
-  shops?: Shop;
+  shops?: { name: string; city: string } | null;
 }
 
-export type LogType = 'maintenance' | 'repair' | 'inspection' | 'install';
+export interface Issue {
+  id: string;
+  equipment_id: string;
+  shop_id: string;
+  reported_by: string | null;
+  reporter_name: string | null;
+  reporter_email: string | null;
+  title: string;
+  description: string;
+  severity: IssueSeverity;
+  status: IssueStatus;
+  resolution_notes: string | null;
+  resolved_at: string | null;
+  resolved_by: string | null;
+  created_at: string;
+  equipment?: { name: string; brand: string; model: string } | null;
+  shops?: { name: string } | null;
+}
+
+export interface ChecklistItem {
+  id: string;
+  label: string;
+  completed: boolean;
+  completed_at: string | null;
+}
+
+export interface ChecklistCompletion {
+  id: string;
+  shop_id: string;
+  completed_by: string;
+  checklist_type: ChecklistType;
+  items: ChecklistItem[];
+  date: string;
+  created_at: string;
+}
 
 export interface MaintenanceLog {
   id: string;
   equipment_id: string;
-  performed_by: string;
-  description: string;
-  log_type: LogType;
-  performed_at: string;
-  created_at: string;
-}
-
-export type RequestStatus   = 'open' | 'in_progress' | 'resolved' | 'closed';
-export type RequestPriority = 'low' | 'normal' | 'high' | 'urgent';
-
-export interface ServiceRequest {
-  id: string;
-  equipment_id: string;
   shop_id: string;
-  requested_by: string | null;
-  issue_type: string;
-  notes: string | null;
-  status: RequestStatus;
-  priority: RequestPriority;
-  media_urls: string[];
-  diagnostic_answers: Record<string, string>;
-  ai_summary: string | null;
-  resolution_notes: string | null;
-  resolved_at: string | null;
+  logged_by: string;
+  type: 'routine' | 'repair' | 'inspection' | 'cleaning';
+  description: string;
+  performed_by: string;
+  performed_at: string;
+  next_service_date: string | null;
   created_at: string;
-  updated_at: string;
-  equipment?: Equipment;
-  shops?: Shop;
 }
 
-export interface TroubleshootEntry {
+export interface Profile {
   id: string;
-  service_request_id: string | null;
-  equipment_id: string | null;
   shop_id: string | null;
-  issue_type: string;
-  equipment_category: string;
-  equipment_model: string | null;
-  problem_description: string;
-  resolution_steps: string;
-  root_cause: string | null;
-  parts_replaced: string | null;
-  is_public: boolean;
-  tags: string[];
-  created_by: string | null;
+  role: UserRole;
+  full_name: string;
   created_at: string;
-  updated_at: string;
-  equipment?: Equipment;
-  shops?: Shop;
+}
+
+// ─── Auth ────────────────────────────────────────────────────────────────────
+
+export interface AuthContextType {
+  user: import('@supabase/supabase-js').User | null;
+  profile: Profile | null;
+  shop: Shop | null;
+  loading: boolean;
+  signOut: () => Promise<void>;
 }
