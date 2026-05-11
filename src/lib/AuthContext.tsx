@@ -1,39 +1,42 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, useRef } from 'react';
 import type { ReactNode } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from './supabaseClient';
 import type { Profile, Shop, AuthContextType } from '../types';
 
 const AuthContext = createContext<AuthContextType>({
-  user: null,
-  profile: null,
-  shop: null,
-  loading: true,
-  signOut: async () => {},
+  user: null, profile: null, shop: null, loading: true, signOut: async () => {},
 });
 
-export function useAuth() {
-  return useContext(AuthContext);
-}
+export function useAuth() { return useContext(AuthContext); }
 
-async function fetchProfile(userId: string): Promise<Profile | null> {
-  const { data, error } = await supabase
+// Fetch profile and shop in parallel where possible
+async function loadUserData(userId: string): Promise<{ profile: Profile | null; shop: Shop | null }> {
+  // Step 1: get profile
+  const { data: profileData, error: profileErr } = await supabase
     .from('profiles')
     .select('id, shop_id, role, full_name, created_at')
     .eq('id', userId)
     .single();
-  if (error) { console.error('Profile fetch error:', error.message); return null; }
-  return data as Profile;
-}
 
-async function fetchShop(shopId: string): Promise<Shop | null> {
-  const { data, error } = await supabase
+  if (profileErr || !profileData) {
+    console.error('Profile fetch error:', profileErr?.message);
+    return { profile: null, shop: null };
+  }
+
+  const profile = profileData as Profile;
+
+  // Step 2: get shop only if partner (admin has no shop_id)
+  if (!profile.shop_id) return { profile, shop: null };
+
+  const { data: shopData, error: shopErr } = await supabase
     .from('shops')
     .select('id, name, address, city, state, contact_name, contact_email, contact_phone, status, approved_at, approved_by, notes, created_at')
-    .eq('id', shopId)
+    .eq('id', profile.shop_id)
     .single();
-  if (error) { console.error('Shop fetch error:', error.message); return null; }
-  return data as Shop;
+
+  if (shopErr) console.error('Shop fetch error:', shopErr.message);
+  return { profile, shop: (shopData as Shop) || null };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -42,48 +45,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [shop, setShop]       = useState<Shop | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadUserData = useCallback(async (u: User) => {
-    const p = await fetchProfile(u.id);
-    setProfile(p);
-    if (p?.shop_id) {
-      const s = await fetchShop(p.shop_id);
-      setShop(s);
-    } else {
-      setShop(null);
-    }
-    setLoading(false);
-  }, []);
+  // Prevent onAuthStateChange from double-firing after getSession
+  const initialised = useRef(false);
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Hard timeout — if Supabase doesn't respond in 6s, unblock the UI
+    const safetyTimer = setTimeout(() => {
+      console.warn('Auth timed out — unblocking UI');
+      setLoading(false);
+    }, 6000);
+
+    // Get session from localStorage immediately (no network call)
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      initialised.current = true;
+
       if (session?.user) {
         setUser(session.user);
-        loadUserData(session.user);
-      } else {
-        setLoading(false);
+        const { profile: p, shop: s } = await loadUserData(session.user.id);
+        setProfile(p);
+        setShop(s);
       }
+
+      clearTimeout(safetyTimer);
+      setLoading(false);
     });
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // Auth state changes (sign in / sign out after initial load)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      // Skip the first fire — getSession already handled it
+      if (!initialised.current) return;
+
       if (session?.user) {
         setUser(session.user);
-        loadUserData(session.user);
+        setLoading(true);
+        const { profile: p, shop: s } = await loadUserData(session.user.id);
+        setProfile(p);
+        setShop(s);
+        setLoading(false);
       } else {
         setUser(null);
         setProfile(null);
         setShop(null);
-        setLoading(false);
       }
     });
 
-    return () => subscription.unsubscribe();
-  }, [loadUserData]);
+    return () => {
+      clearTimeout(safetyTimer);
+      subscription.unsubscribe();
+    };
+  }, []);
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
-  };
+  const signOut = async () => { await supabase.auth.signOut(); };
 
   return (
     <AuthContext.Provider value={{ user, profile, shop, loading, signOut }}>
