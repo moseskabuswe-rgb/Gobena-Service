@@ -62,12 +62,17 @@ export default function PartnerEquipmentPage() {
     if (err) { setError(err.message); setSubmitting(false); return; }
 
     // Notify admin
-    supabase.rpc('create_admin_notification', {
-      p_type:  'equipment_added',
-      p_title: 'New equipment added',
-      p_body:  `${shop.name} added ${form.name} (${form.brand} ${form.model})`,
-      p_link:  '/admin/equipment',
-    }).then(() => {}).catch(() => {}); // non-blocking, fire and forget
+    // Fire and forget — notify admin, don't block on result
+    void (async () => {
+      try {
+        await supabase.rpc('create_admin_notification', {
+          p_type:  'equipment_added',
+          p_title: 'New equipment added',
+          p_body:  `${shop.name} added ${form.name} (${form.brand} ${form.model})`,
+          p_link:  '/admin/equipment',
+        });
+      } catch { /* non-blocking */ }
+    })();
 
     setSuccess(true);
     setSubmitting(false);
