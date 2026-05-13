@@ -1,18 +1,22 @@
 import { useState } from 'react';
-import { supabase } from '../lib/supabaseClient';
-import { useAuth } from '../lib/AuthContext';
+import { createClient } from '@supabase/supabase-js';
 import type { Equipment } from '../types';
 import { X, AlertCircle, CheckCircle, Camera } from './Icons';
 
+// Own minimal client — no auth dependency, works in QR scan context
+const db = createClient(
+  import.meta.env.VITE_SUPABASE_URL as string,
+  import.meta.env.VITE_SUPABASE_ANON_KEY as string,
+  { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } },
+);
+
 const SEVERITY_OPTIONS = [
-  { value: 'low',      label: 'Low',      desc: 'Minor issue, not urgent',             color: 'border-stone-200 text-stone-600' },
-  { value: 'medium',   label: 'Medium',   desc: 'Affecting workflow',                  color: 'border-amber-300 text-amber-700' },
-  { value: 'high',     label: 'High',     desc: 'Significantly impacting operations',  color: 'border-orange-300 text-orange-700' },
-  { value: 'critical', label: 'Critical', desc: 'Machine unusable or safety concern',  color: 'border-red-300 text-red-700' },
+  { value: 'low',      label: 'Low',      desc: 'Minor, not urgent',              color: 'border-stone-200 text-stone-600'   },
+  { value: 'medium',   label: 'Medium',   desc: 'Affecting workflow',             color: 'border-amber-300 text-amber-700'   },
+  { value: 'high',     label: 'High',     desc: 'Significantly impacting ops',    color: 'border-orange-300 text-orange-700' },
+  { value: 'critical', label: 'Critical', desc: 'Unusable or safety concern',     color: 'border-red-300 text-red-700'       },
 ];
 
-// Compress a photo to JPEG, max 1200px on longest side, 75% quality.
-// A typical phone photo (4-8 MB) comes out ~100-200 KB - safe for Supabase free tier.
 function compressImage(file: File, maxPx = 1200, quality = 0.75): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -23,45 +27,38 @@ function compressImage(file: File, maxPx = 1200, quality = 0.75): Promise<Blob> 
       const w = Math.round(img.width * scale);
       const h = Math.round(img.height * scale);
       const canvas = document.createElement('canvas');
-      canvas.width  = w;
-      canvas.height = h;
+      canvas.width = w; canvas.height = h;
       const ctx = canvas.getContext('2d');
       if (!ctx) { reject(new Error('Canvas unavailable')); return; }
       ctx.drawImage(img, 0, 0, w, h);
       canvas.toBlob(
-        blob => (blob ? resolve(blob) : reject(new Error('Compression failed'))),
-        'image/jpeg',
-        quality,
+        blob => blob ? resolve(blob) : reject(new Error('Compression failed')),
+        'image/jpeg', quality,
       );
     };
-    img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('Image load failed')); };
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('Load failed')); };
     img.src = objectUrl;
   });
 }
 
 export default function IssueForm({
-  equipment,
-  onClose,
-  onSubmit,
+  equipment, onClose, onSubmit,
 }: {
   equipment: Equipment;
   onClose: () => void;
   onSubmit: () => void;
 }) {
-  const { user, profile } = useAuth();
-  const [step, setStep]   = useState<'form' | 'done'>('form');
-  const [loading, setLoading]           = useState(false);
-  const [error, setError]               = useState('');
+  const [step, setStep]             = useState<'form' | 'done'>('form');
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState('');
   const [uploadProgress, setUploadProgress] = useState('');
 
-  const [title, setTitle]             = useState('');
+  const [title, setTitle]           = useState('');
   const [description, setDescription] = useState('');
-  const [severity, setSeverity]       = useState<'low' | 'medium' | 'high' | 'critical'>('medium');
-  const [guestName, setGuestName]     = useState('');
-  const [guestEmail, setGuestEmail]   = useState('');
-  const [photos, setPhotos]           = useState<File[]>([]);
-
-  const isGuest = !user;
+  const [severity, setSeverity]     = useState<'low' | 'medium' | 'high' | 'critical'>('medium');
+  const [reporterName, setReporterName] = useState('');
+  const [reporterEmail, setReporterEmail] = useState('');
+  const [photos, setPhotos]         = useState<File[]>([]);
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPhotos(Array.from(e.target.files || []).slice(0, 3));
@@ -69,39 +66,36 @@ export default function IssueForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) { setError('Please describe the issue'); return; }
-    if (isGuest && !guestName.trim()) { setError('Please enter your name'); return; }
+    if (!title.trim())        { setError('Please describe the issue'); return; }
+    if (!reporterName.trim()) { setError('Please enter your name'); return; }
 
     setError('');
     setLoading(true);
 
-    // Compress then upload each photo
     const photoUrls: string[] = [];
     for (let i = 0; i < photos.length; i++) {
-      setUploadProgress(`Compressing photo ${i + 1} of ${photos.length}...`);
+      setUploadProgress(`Compressing photo ${i + 1} of ${photos.length}…`);
       try {
         const compressed = await compressImage(photos[i]);
         const path = `issues/${equipment.id}/${Date.now()}-${i}.jpg`;
-        setUploadProgress(`Uploading photo ${i + 1} of ${photos.length}...`);
-        const { error: uploadErr } = await supabase.storage
+        setUploadProgress(`Uploading photo ${i + 1} of ${photos.length}…`);
+        const { error: uploadErr } = await db.storage
           .from('issue-photos')
           .upload(path, compressed, { contentType: 'image/jpeg' });
         if (!uploadErr) {
-          const { data } = supabase.storage.from('issue-photos').getPublicUrl(path);
+          const { data } = db.storage.from('issue-photos').getPublicUrl(path);
           photoUrls.push(data.publicUrl);
         }
-      } catch {
-        // Skip a photo that fails - don't block the whole report
-      }
+      } catch { /* skip failed photo */ }
     }
     setUploadProgress('');
 
-    const { error: issueErr } = await supabase.from('issues').insert({
+    const { error: issueErr } = await db.from('issues').insert({
       equipment_id:   equipment.id,
       shop_id:        equipment.shop_id,
-      reported_by:    user?.id || null,
-      reporter_name:  isGuest ? guestName : (profile?.full_name || null),
-      reporter_email: isGuest ? guestEmail : (user?.email || null),
+      reported_by:    null,
+      reporter_name:  reporterName.trim(),
+      reporter_email: reporterEmail.trim() || null,
       title:          title.trim(),
       description:    description.trim(),
       severity,
@@ -110,7 +104,7 @@ export default function IssueForm({
     });
 
     if (issueErr) {
-      setError('Failed to submit issue. Please try again.');
+      setError('Failed to submit. Please try again.');
       setLoading(false);
       return;
     }
@@ -140,39 +134,40 @@ export default function IssueForm({
             </div>
             <h3 className="font-bold text-stone-900 mb-1">Issue reported</h3>
             <p className="text-sm text-stone-500">Gobena has been notified and will follow up soon.</p>
-            <button onClick={onSubmit} className="mt-6 px-6 py-2.5 bg-stone-900 text-white text-sm font-semibold rounded-xl">
+            <button onClick={onSubmit}
+              className="mt-6 px-6 py-2.5 bg-stone-900 text-white text-sm font-semibold rounded-xl">
               Done
             </button>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
 
-            {isGuest && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-3 space-y-3">
-                <p className="text-xs font-semibold text-amber-800">Quick report - no login needed</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs text-stone-500 mb-1">Your name *</label>
-                    <input value={guestName} onChange={e => setGuestName(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400"
-                      placeholder="Jane" />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-stone-500 mb-1">Email (optional)</label>
-                    <input type="email" value={guestEmail} onChange={e => setGuestEmail(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400"
-                      placeholder="you@shop.com" />
-                  </div>
+            {/* Reporter */}
+            <div className="bg-stone-50 rounded-xl px-3.5 py-3 space-y-3">
+              <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide">Your details</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-stone-500 mb-1">Name *</label>
+                  <input value={reporterName} onChange={e => setReporterName(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    placeholder="Jane" />
+                </div>
+                <div>
+                  <label className="block text-xs text-stone-500 mb-1">Email (optional)</label>
+                  <input type="email" value={reporterEmail} onChange={e => setReporterEmail(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    placeholder="you@shop.com" />
                 </div>
               </div>
-            )}
+            </div>
 
+            {/* Issue */}
             <div>
               <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wide mb-1.5">
                 What's the issue? *
               </label>
               <input value={title} onChange={e => setTitle(e.target.value)}
-                placeholder="e.g. Espresso machine not reaching pressure"
+                placeholder="e.g. Machine not reaching pressure"
                 className="w-full px-3.5 py-2.5 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400" />
             </div>
 
@@ -181,11 +176,12 @@ export default function IssueForm({
                 More detail
               </label>
               <textarea value={description} onChange={e => setDescription(e.target.value)}
-                placeholder="When did it start? What have you already tried? Any error messages?"
+                placeholder="When did it start? What have you tried? Any error messages?"
                 rows={3}
                 className="w-full px-3.5 py-2.5 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none" />
             </div>
 
+            {/* Severity */}
             <div>
               <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">
                 Severity
@@ -194,7 +190,7 @@ export default function IssueForm({
                 {SEVERITY_OPTIONS.map(opt => (
                   <button key={opt.value} type="button" onClick={() => setSeverity(opt.value as typeof severity)}
                     className={`px-3 py-2.5 rounded-xl border text-left transition ${
-                      severity === opt.value ? `${opt.color} bg-opacity-10 border-2` : 'border-stone-200 text-stone-500'
+                      severity === opt.value ? `${opt.color} border-2` : 'border-stone-200 text-stone-500'
                     }`}>
                     <p className="text-xs font-semibold">{opt.label}</p>
                     <p className="text-[10px] mt-0.5 opacity-70">{opt.desc}</p>
@@ -203,6 +199,7 @@ export default function IssueForm({
               </div>
             </div>
 
+            {/* Photos */}
             <div>
               <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wide mb-1.5">
                 Photos (optional, max 3)
@@ -210,16 +207,12 @@ export default function IssueForm({
               <label className="flex items-center gap-2 border border-dashed border-stone-200 rounded-xl px-4 py-3 cursor-pointer hover:bg-stone-50 transition">
                 <Camera size={16} className="text-stone-400 shrink-0" />
                 <span className="text-sm text-stone-400">
-                  {photos.length > 0
-                    ? `${photos.length} photo${photos.length > 1 ? 's' : ''} selected`
-                    : 'Add up to 3 photos'}
+                  {photos.length > 0 ? `${photos.length} photo${photos.length > 1 ? 's' : ''} selected` : 'Add up to 3 photos'}
                 </span>
                 <input type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoChange} />
               </label>
               {photos.length > 0 && (
-                <p className="text-xs text-stone-400 mt-1.5 pl-1">
-                  Photos are compressed before upload to save storage.
-                </p>
+                <p className="text-xs text-stone-400 mt-1.5 pl-1">Compressed before upload to save storage.</p>
               )}
             </div>
 
@@ -232,14 +225,13 @@ export default function IssueForm({
 
             {error && (
               <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 rounded-xl px-3.5 py-3">
-                <AlertCircle size={14} className="shrink-0" />
-                {error}
+                <AlertCircle size={14} className="shrink-0" />{error}
               </div>
             )}
 
             <button type="submit" disabled={loading}
               className="w-full py-3 bg-stone-900 text-white font-semibold text-sm rounded-xl hover:bg-stone-800 active:scale-[.98] transition disabled:opacity-50">
-              {loading ? (uploadProgress ? 'Processing...' : 'Submitting...') : 'Submit issue'}
+              {loading ? (uploadProgress ? 'Processing…' : 'Submitting…') : 'Submit issue'}
             </button>
 
           </form>
