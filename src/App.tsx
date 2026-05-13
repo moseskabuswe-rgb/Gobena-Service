@@ -53,12 +53,14 @@ function AppRoutes() {
   const showNav = !!user && !!profile && !isPrintPage;
   const defaultPath = profile?.role === 'admin' ? '/admin' : '/dashboard';
 
-  const isPublicRoute = location.pathname.startsWith('/equipment/') &&
-    !location.pathname.includes('/qr') ||
-    location.pathname === '/login' ||
-    location.pathname === '/register';
+  // Don't block public routes on auth loading
+  const isPublicEquipmentPage =
+    location.pathname.startsWith('/equipment/') &&
+    !location.pathname.includes('/qr');
+  const isAuthPage =
+    location.pathname === '/login' || location.pathname === '/register';
 
-  if (loading && !isPublicRoute) return <Spinner />;
+  if (loading && !isPublicEquipmentPage && !isAuthPage) return <Spinner />;
 
   return (
     <div className="min-h-screen bg-stone-50">
@@ -69,28 +71,28 @@ function AppRoutes() {
           <Route path="/login"    element={user && profile ? <Navigate to={defaultPath} replace /> : <LoginPage />} />
           <Route path="/register" element={user && profile ? <Navigate to={defaultPath} replace /> : <RegisterPage />} />
 
-          {/* Public QR scan — no auth, own Supabase client */}
+          {/* Public QR scan */}
           <Route path="/equipment/:id" element={<EquipmentDetailPage />} />
 
           {/* Partner */}
-          <Route path="/dashboard"      element={<RequireAuth><DashboardPage /></RequireAuth>} />
-          <Route path="/equipment"      element={<RequireAuth><PartnerEquipmentPage /></RequireAuth>} />
-          <Route path="/checklist"      element={<RequireAuth><ChecklistPage /></RequireAuth>} />
-          <Route path="/maintenance"    element={<RequireAuth><MaintenancePage /></RequireAuth>} />
-          <Route path="/guide"          element={<RequireAuth><TroubleshootPage /></RequireAuth>} />
-          <Route path="/messages"       element={<RequireAuth><MessagesPage /></RequireAuth>} />
-          <Route path="/notifications"  element={<RequireAuth><NotificationsPage /></RequireAuth>} />
+          <Route path="/dashboard"     element={<RequireAuth><DashboardPage /></RequireAuth>} />
+          <Route path="/equipment"     element={<RequireAuth><PartnerEquipmentPage /></RequireAuth>} />
+          <Route path="/checklist"     element={<RequireAuth><ChecklistPage /></RequireAuth>} />
+          <Route path="/maintenance"   element={<RequireAuth><MaintenancePage /></RequireAuth>} />
+          <Route path="/guide"         element={<RequireAuth><TroubleshootPage /></RequireAuth>} />
+          <Route path="/messages"      element={<RequireAuth><MessagesPage /></RequireAuth>} />
+          <Route path="/notifications" element={<RequireAuth><NotificationsPage /></RequireAuth>} />
 
-          {/* QR print — partners can now print their own */}
+          {/* QR print */}
           <Route path="/equipment/:id/qr" element={<RequireAuth><QRPrintPage /></RequireAuth>} />
 
           {/* Admin */}
-          <Route path="/admin"              element={<RequireAdmin><AdminDashboardPage /></RequireAdmin>} />
-          <Route path="/admin/shops"        element={<RequireAdmin><AdminShopsPage /></RequireAdmin>} />
-          <Route path="/admin/equipment"    element={<RequireAdmin><AdminEquipmentPage /></RequireAdmin>} />
-          <Route path="/admin/issues"       element={<RequireAdmin><AdminIssuesPage /></RequireAdmin>} />
-          <Route path="/admin/messages"     element={<RequireAdmin><AdminMessagesPage /></RequireAdmin>} />
-          <Route path="/admin/notifications"element={<RequireAdmin><NotificationsPage /></RequireAdmin>} />
+          <Route path="/admin"               element={<RequireAdmin><AdminDashboardPage /></RequireAdmin>} />
+          <Route path="/admin/shops"         element={<RequireAdmin><AdminShopsPage /></RequireAdmin>} />
+          <Route path="/admin/equipment"     element={<RequireAdmin><AdminEquipmentPage /></RequireAdmin>} />
+          <Route path="/admin/issues"        element={<RequireAdmin><AdminIssuesPage /></RequireAdmin>} />
+          <Route path="/admin/messages"      element={<RequireAdmin><AdminMessagesPage /></RequireAdmin>} />
+          <Route path="/admin/notifications" element={<RequireAdmin><NotificationsPage /></RequireAdmin>} />
 
           {/* Root + catch-all */}
           <Route path="/" element={
