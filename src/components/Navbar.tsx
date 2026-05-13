@@ -7,16 +7,17 @@ import {
 } from './Icons';
 
 const PARTNER_TABS = [
-  { to: '/dashboard',   label: 'Home',     Icon: LayoutGrid    },
-  { to: '/equipment',   label: 'Machines', Icon: Wrench        },
-  { to: '/checklist',   label: 'Checklist',Icon: ClipboardList },
-  { to: '/messages',    label: 'Messages', Icon: Send          },
+  { to: '/dashboard',  label: 'Home',      Icon: LayoutGrid    },
+  { to: '/equipment',  label: 'Machines',  Icon: Wrench        },
+  { to: '/checklist',  label: 'Checklist', Icon: ClipboardList },
+  { to: '/messages',   label: 'Messages',  Icon: Send          },
 ];
 
 const ADMIN_TABS = [
   { to: '/admin',           label: 'Overview', Icon: BarChart2 },
   { to: '/admin/shops',     label: 'Shops',    Icon: Store     },
   { to: '/admin/issues',    label: 'Issues',   Icon: Bell      },
+  { to: '/admin/equipment', label: 'Equipment',Icon: Wrench    },
   { to: '/admin/messages',  label: 'Messages', Icon: Send      },
 ];
 
@@ -34,37 +35,44 @@ export default function Navbar() {
   return (
     <>
       {/* ── Desktop top bar ── */}
-      <header className="hidden md:flex sticky top-0 z-40 h-14 bg-white border-b border-stone-200 items-center px-6 gap-4 shadow-sm">
+      <header className="hidden md:flex sticky top-0 z-40 h-14 bg-white border-b border-stone-200 items-center px-4 shadow-sm gap-2">
+
+        {/* Logo — shrinks text on smaller screens */}
         <Link to={isAdmin ? '/admin' : '/dashboard'}
-          className="flex items-center gap-2.5 mr-2 shrink-0">
-          <GoMark size={30} />
-          <span className="font-semibold text-stone-800 text-sm tracking-tight">
+          className="flex items-center gap-2 shrink-0 mr-1">
+          <GoMark size={28} />
+          <span className="font-semibold text-stone-800 text-sm tracking-tight hidden lg:block">
             Gobena <span className="text-amber-700 font-light">Service</span>
           </span>
         </Link>
 
-        <nav className="flex items-center gap-1 flex-1">
+        {/* Scrollable nav — never overflows, tabs scroll horizontally if needed */}
+        <nav className="flex items-center gap-0.5 flex-1 overflow-x-auto scrollbar-none min-w-0">
           {tabs.map(({ to, label, Icon }) => (
             <Link key={to} to={to}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                isActive(to) ? 'bg-amber-50 text-amber-800' : 'text-stone-500 hover:text-stone-800 hover:bg-stone-100'
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors shrink-0 ${
+                isActive(to)
+                  ? 'bg-amber-50 text-amber-800'
+                  : 'text-stone-500 hover:text-stone-800 hover:bg-stone-100'
               }`}>
-              <Icon size={15} />{label}
+              <Icon size={14} />{label}
             </Link>
           ))}
         </nav>
 
-        <div className="flex items-center gap-2 ml-auto">
+        {/* Right side — always visible */}
+        <div className="flex items-center gap-1.5 ml-2 shrink-0">
           {!isAdmin && shop && (
-            <span className="text-xs text-stone-400 font-medium hidden lg:block truncate max-w-[140px]">{shop.name}</span>
+            <span className="text-xs text-stone-400 hidden xl:block truncate max-w-[120px]">{shop.name}</span>
           )}
           <NotificationBell />
-          <div className="text-right hidden sm:block">
+          <div className="text-right hidden lg:block">
             <p className="text-xs font-medium text-stone-800 leading-none">{profile?.full_name}</p>
-            <p className="text-xs text-stone-400 mt-0.5 capitalize">{profile?.role}</p>
+            <p className="text-[10px] text-stone-400 mt-0.5 capitalize">{profile?.role}</p>
           </div>
           <button onClick={signOut}
-            className="p-2 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors" title="Sign out">
+            className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors"
+            title="Sign out">
             <LogOut size={16} />
           </button>
         </div>
@@ -78,31 +86,34 @@ export default function Navbar() {
           <span className="text-amber-700 font-light text-sm">Service</span>
         </div>
         {!isAdmin && shop && (
-          <span className="ml-3 text-xs text-stone-400 truncate flex-1 min-w-0">{shop.name}</span>
+          <span className="ml-2 text-xs text-stone-400 truncate flex-1 min-w-0">{shop.name}</span>
         )}
         {isAdmin && (
-          <span className="ml-3 text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-medium">Admin</span>
+          <span className="ml-2 text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-medium">Admin</span>
         )}
         <div className="ml-auto flex items-center gap-1">
           <NotificationBell />
-          <button onClick={signOut} className="p-2 text-stone-400 hover:text-stone-700 shrink-0" title="Sign out">
+          <button onClick={signOut} className="p-2 text-stone-400 hover:text-stone-700" title="Sign out">
             <LogOut size={18} />
           </button>
         </div>
       </header>
 
-      {/* ── Mobile bottom tab bar — 4 tabs in a grid ── */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-stone-200 grid safe-bottom"
-        style={{ gridTemplateColumns: `repeat(${tabs.length}, 1fr)` }}>
-        {tabs.map(({ to, label, Icon }) => (
-          <Link key={to} to={to}
-            className={`flex flex-col items-center justify-center gap-0.5 py-2.5 text-[10px] font-medium transition-colors ${
-              isActive(to) ? 'text-amber-800' : 'text-stone-400'
-            }`}>
-            <Icon size={22} />
-            <span>{label}</span>
-          </Link>
-        ))}
+      {/* ── Mobile bottom tab bar ──
+          Horizontally scrollable so all tabs are always reachable.
+          Active tab is highlighted. Tapping navigates immediately. ── */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-stone-100 safe-bottom">
+        <div className="flex overflow-x-auto scrollbar-none">
+          {tabs.map(({ to, label, Icon }) => (
+            <Link key={to} to={to}
+              className={`flex flex-col items-center justify-center gap-0.5 py-2.5 px-4 text-[10px] font-medium whitespace-nowrap shrink-0 flex-1 min-w-[64px] transition-colors ${
+                isActive(to) ? 'text-amber-800' : 'text-stone-400'
+              }`}>
+              <Icon size={20} />
+              <span>{label}</span>
+            </Link>
+          ))}
+        </div>
       </nav>
     </>
   );
