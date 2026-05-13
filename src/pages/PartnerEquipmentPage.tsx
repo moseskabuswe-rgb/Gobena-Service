@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../lib/AuthContext';
 import type { Equipment } from '../types';
-import { Plus, Wrench, Search, ChevronRight, X, AlertCircle, QrCode, Calendar, Hash, CheckCircle, XCircle } from '../components/Icons';
+import { Plus, Wrench, Search, ChevronRight, X, AlertCircle, QrCode, Hash, CheckCircle } from '../components/Icons';
 
 const statusColor: Record<string, string> = {
   operational:     'bg-green-100 text-green-700',
@@ -15,7 +15,7 @@ const statusLabel: Record<string, string> = {
 };
 
 export default function PartnerEquipmentPage() {
-  const { profile, shop } = useAuth();
+  const { shop } = useAuth();
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [loading, setLoading]     = useState(true);
   const [query, setQuery]         = useState('');
@@ -62,12 +62,12 @@ export default function PartnerEquipmentPage() {
     if (err) { setError(err.message); setSubmitting(false); return; }
 
     // Notify admin
-    await supabase.rpc('create_admin_notification', {
+    supabase.rpc('create_admin_notification', {
       p_type:  'equipment_added',
       p_title: 'New equipment added',
       p_body:  `${shop.name} added ${form.name} (${form.brand} ${form.model})`,
       p_link:  '/admin/equipment',
-    }).catch(() => {}); // non-blocking
+    }).then(() => {}).catch(() => {}); // non-blocking, fire and forget
 
     setSuccess(true);
     setSubmitting(false);
