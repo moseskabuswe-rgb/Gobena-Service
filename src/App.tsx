@@ -3,19 +3,22 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { AuthProvider, useAuth } from './lib/AuthContext';
 import Navbar from './components/Navbar';
 
-const LoginPage          = lazy(() => import('./pages/AuthPages').then(m => ({ default: m.LoginPage })));
-const RegisterPage       = lazy(() => import('./pages/AuthPages').then(m => ({ default: m.RegisterPage })));
-const DashboardPage      = lazy(() => import('./pages/DashboardPage'));
-const EquipmentListPage  = lazy(() => import('./pages/EquipmentListPage'));
-const EquipmentDetailPage= lazy(() => import('./pages/EquipmentDetailPage'));
-const ChecklistPage      = lazy(() => import('./pages/ChecklistPage'));
-const MaintenancePage    = lazy(() => import('./pages/MaintenancePage'));
-const TroubleshootPage   = lazy(() => import('./pages/TroubleshootPage'));
-const QRPrintPage        = lazy(() => import('./pages/QRPrintPage'));
-const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
-const AdminShopsPage     = lazy(() => import('./pages/AdminShopsPage'));
-const AdminEquipmentPage = lazy(() => import('./pages/AdminEquipmentPage'));
-const AdminIssuesPage    = lazy(() => import('./pages/AdminIssuesPage'));
+const LoginPage           = lazy(() => import('./pages/AuthPages').then(m => ({ default: m.LoginPage })));
+const RegisterPage        = lazy(() => import('./pages/AuthPages').then(m => ({ default: m.RegisterPage })));
+const DashboardPage       = lazy(() => import('./pages/DashboardPage'));
+const PartnerEquipmentPage= lazy(() => import('./pages/PartnerEquipmentPage'));
+const EquipmentDetailPage = lazy(() => import('./pages/EquipmentDetailPage'));
+const ChecklistPage       = lazy(() => import('./pages/ChecklistPage'));
+const MaintenancePage     = lazy(() => import('./pages/MaintenancePage'));
+const TroubleshootPage    = lazy(() => import('./pages/TroubleshootPage'));
+const MessagesPage        = lazy(() => import('./pages/MessagesPage'));
+const NotificationsPage   = lazy(() => import('./pages/NotificationsPage'));
+const QRPrintPage         = lazy(() => import('./pages/QRPrintPage'));
+const AdminDashboardPage  = lazy(() => import('./pages/AdminDashboardPage'));
+const AdminShopsPage      = lazy(() => import('./pages/AdminShopsPage'));
+const AdminEquipmentPage  = lazy(() => import('./pages/AdminEquipmentPage'));
+const AdminIssuesPage     = lazy(() => import('./pages/AdminIssuesPage'));
+const AdminMessagesPage   = lazy(() => import('./pages/AdminMessagesPage'));
 
 function Spinner() {
   return (
@@ -48,12 +51,12 @@ function AppRoutes() {
 
   const isPrintPage = location.pathname.includes('/qr');
   const showNav = !!user && !!profile && !isPrintPage;
-
   const defaultPath = profile?.role === 'admin' ? '/admin' : '/dashboard';
 
-  // Only block on loading for authenticated routes — public pages render immediately
-  const isPublicRoute = location.pathname.startsWith('/equipment/') ||
-    location.pathname === '/login' || location.pathname === '/register';
+  const isPublicRoute = location.pathname.startsWith('/equipment/') &&
+    !location.pathname.includes('/qr') ||
+    location.pathname === '/login' ||
+    location.pathname === '/register';
 
   if (loading && !isPublicRoute) return <Spinner />;
 
@@ -66,24 +69,28 @@ function AppRoutes() {
           <Route path="/login"    element={user && profile ? <Navigate to={defaultPath} replace /> : <LoginPage />} />
           <Route path="/register" element={user && profile ? <Navigate to={defaultPath} replace /> : <RegisterPage />} />
 
-          {/* Public — QR scan, no login needed, loads independently */}
+          {/* Public QR scan — no auth, own Supabase client */}
           <Route path="/equipment/:id" element={<EquipmentDetailPage />} />
 
           {/* Partner */}
-          <Route path="/dashboard"   element={<RequireAuth><DashboardPage /></RequireAuth>} />
-          <Route path="/equipment"   element={<RequireAuth><EquipmentListPage /></RequireAuth>} />
-          <Route path="/checklist"   element={<RequireAuth><ChecklistPage /></RequireAuth>} />
-          <Route path="/maintenance" element={<RequireAuth><MaintenancePage /></RequireAuth>} />
-          <Route path="/guide"       element={<RequireAuth><TroubleshootPage /></RequireAuth>} />
+          <Route path="/dashboard"      element={<RequireAuth><DashboardPage /></RequireAuth>} />
+          <Route path="/equipment"      element={<RequireAuth><PartnerEquipmentPage /></RequireAuth>} />
+          <Route path="/checklist"      element={<RequireAuth><ChecklistPage /></RequireAuth>} />
+          <Route path="/maintenance"    element={<RequireAuth><MaintenancePage /></RequireAuth>} />
+          <Route path="/guide"          element={<RequireAuth><TroubleshootPage /></RequireAuth>} />
+          <Route path="/messages"       element={<RequireAuth><MessagesPage /></RequireAuth>} />
+          <Route path="/notifications"  element={<RequireAuth><NotificationsPage /></RequireAuth>} />
 
-          {/* QR print */}
-          <Route path="/equipment/:id/qr" element={<RequireAdmin><QRPrintPage /></RequireAdmin>} />
+          {/* QR print — partners can now print their own */}
+          <Route path="/equipment/:id/qr" element={<RequireAuth><QRPrintPage /></RequireAuth>} />
 
           {/* Admin */}
-          <Route path="/admin"           element={<RequireAdmin><AdminDashboardPage /></RequireAdmin>} />
-          <Route path="/admin/shops"     element={<RequireAdmin><AdminShopsPage /></RequireAdmin>} />
-          <Route path="/admin/equipment" element={<RequireAdmin><AdminEquipmentPage /></RequireAdmin>} />
-          <Route path="/admin/issues"    element={<RequireAdmin><AdminIssuesPage /></RequireAdmin>} />
+          <Route path="/admin"              element={<RequireAdmin><AdminDashboardPage /></RequireAdmin>} />
+          <Route path="/admin/shops"        element={<RequireAdmin><AdminShopsPage /></RequireAdmin>} />
+          <Route path="/admin/equipment"    element={<RequireAdmin><AdminEquipmentPage /></RequireAdmin>} />
+          <Route path="/admin/issues"       element={<RequireAdmin><AdminIssuesPage /></RequireAdmin>} />
+          <Route path="/admin/messages"     element={<RequireAdmin><AdminMessagesPage /></RequireAdmin>} />
+          <Route path="/admin/notifications"element={<RequireAdmin><NotificationsPage /></RequireAdmin>} />
 
           {/* Root + catch-all */}
           <Route path="/" element={

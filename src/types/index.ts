@@ -6,6 +6,7 @@ export type IssueSeverity = 'low' | 'medium' | 'high' | 'critical';
 export type IssueStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
 export type UserRole = 'admin' | 'partner';
 export type ChecklistType = 'opening' | 'closing' | 'weekly';
+export type NotificationType = 'new_issue' | 'issue_resolved' | 'new_message' | 'equipment_added' | 'shop_approved';
 
 export interface Shop {
   id: string;
@@ -85,6 +86,29 @@ export interface MaintenanceLog {
   performed_by: string;
   performed_at: string;
   next_service_date: string | null;
+  created_at: string;
+}
+
+export interface Message {
+  id: string;
+  shop_id: string;
+  sender_id: string;
+  sender_role: UserRole;
+  sender_name: string;
+  body: string;
+  read_by_admin: boolean;
+  read_by_partner: boolean;
+  created_at: string;
+}
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  link: string | null;
+  read: boolean;
   created_at: string;
 }
 
