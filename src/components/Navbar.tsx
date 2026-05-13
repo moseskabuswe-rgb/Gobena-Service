@@ -2,7 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext';
 import NotificationBell from './NotificationBell';
 import {
-  GoMark, LayoutGrid, Wrench, ClipboardList, BookOpen,
+  GoMark, LayoutGrid, Wrench, ClipboardList,
   LogOut, Store, BarChart2, Bell, Send,
 } from './Icons';
 
