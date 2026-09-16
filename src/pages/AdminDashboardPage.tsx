@@ -6,6 +6,7 @@ import {
   Store, AlertCircle, CheckCircle, Clock, Wrench,
   ChevronRight, RefreshCw, Zap, Bell,
 } from '../components/Icons';
+import { PageSpinner } from '../components/ui';
 
 const severityColor: Record<string, string> = {
   critical: 'bg-red-100 text-red-700 border-red-200',
@@ -19,6 +20,13 @@ interface AdminStats {
   criticalIssues: number; totalEquipment: number; equipmentNeedingAttention: number;
 }
 type IssueWithShop = Issue & { shops?: { name: string } | null };
+
+const SEVERITY_RANK: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+function bySeverityThenRecency(a: Issue, b: Issue) {
+  const rankDiff = SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity];
+  if (rankDiff !== 0) return rankDiff;
+  return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+}
 
 export default function AdminDashboardPage() {
   const [stats, setStats]           = useState<AdminStats | null>(null);
@@ -35,7 +43,7 @@ export default function AdminDashboardPage() {
       supabase.from('equipment').select('id, status'),
     ]);
     const shops = (shopRes.data as unknown as Shop[]) || [];
-    const issueList = (issueRes.data as unknown as IssueWithShop[]) || [];
+    const issueList = ((issueRes.data as unknown as IssueWithShop[]) || []).sort(bySeverityThenRecency);
     const equipment = (eqRes.data as unknown as Equipment[]) || [];
     setIssues(issueList);
     setPendingShops(shops.filter(s => s.status === 'pending'));
@@ -71,11 +79,7 @@ export default function AdminDashboardPage() {
     setStats(prev => prev ? { ...prev, pendingShops: prev.pendingShops - 1, totalShops: prev.totalShops + 1 } : prev);
   };
 
-  if (loading) return (
-    <div className="min-h-screen bg-stone-50 flex items-center justify-center">
-      <div className="w-6 h-6 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
-    </div>
-  );
+  if (loading) return <PageSpinner />;
 
   return (
     <div className="min-h-screen bg-stone-50 pb-24 md:pb-10">
@@ -153,7 +157,7 @@ export default function AdminDashboardPage() {
             <div>
               <div className="flex items-center justify-between mb-3">
                 <p className="text-xs font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
-                  Open issues
+                  Open issues · most urgent first
                   <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse inline-block" />
                 </p>
                 <Link to="/admin/issues" className="text-xs text-amber-700 font-medium">View all →</Link>

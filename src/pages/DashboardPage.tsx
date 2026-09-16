@@ -7,6 +7,7 @@ import {
   AlertCircle, Wrench, ClipboardList, BookOpen,
   ChevronRight, Coffee, Clock, TrendingUp, Zap, Calendar,
 } from '../components/Icons';
+import { PageSpinner } from '../components/ui';
 
 const severityColors: Record<string, string> = {
   critical: 'bg-red-100 text-red-700 border-red-200',
@@ -75,11 +76,7 @@ export default function DashboardPage() {
     return diff <= 14 && diff >= 0;
   }).length;
 
-  if (loading) return (
-    <div className="min-h-screen bg-stone-50 flex items-center justify-center">
-      <div className="w-6 h-6 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
-    </div>
-  );
+  if (loading) return <PageSpinner />;
 
   if (shop?.status === 'pending') return (
     <div className="min-h-screen bg-stone-50 flex items-center justify-center p-6">

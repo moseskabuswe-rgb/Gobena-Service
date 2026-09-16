@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../lib/AuthContext';
 import type { ChecklistItem, ChecklistType } from '../types';
 import { CheckCircle, Circle, Clock } from '../components/Icons';
+import { SectionSpinner } from '../components/ui';
 
 // ─── Checklist definitions ────────────────────────────────────────────────────
 const CHECKLISTS: Record<ChecklistType, { label: string; items: Omit<ChecklistItem, 'completed' | 'completed_at'>[] }> = {
@@ -187,9 +188,7 @@ export default function ChecklistPage() {
 
         {/* Checklist items */}
         {loading ? (
-          <div className="flex justify-center py-8">
-            <div className="w-6 h-6 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
-          </div>
+          <SectionSpinner className="py-8" />
         ) : (
           <div className="bg-white rounded-2xl border border-stone-100 divide-y divide-stone-50">
             {items.map((item, i) => (

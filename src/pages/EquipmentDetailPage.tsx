@@ -14,6 +14,7 @@ import {
   ArrowLeft, Calendar, Hash, AlertCircle,
   CheckCircle, XCircle, Plus, Clock,
 } from '../components/Icons';
+import { Spinner } from '../components/ui';
 
 // Minimal client — no auth config, no session detection, just DB reads
 const db = createClient(
@@ -103,7 +104,7 @@ export default function EquipmentDetailPage() {
 
   if (pageLoading) return (
     <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center gap-3">
-      <div className="w-8 h-8 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
+      <Spinner size="lg" />
       <p className="text-sm text-stone-400">Loading equipment…</p>
     </div>
   );

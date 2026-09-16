@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../lib/AuthContext';
 import type { Notification } from '../types';
 import { Bell, CheckCircle, AlertCircle, Send, Wrench, Store } from '../components/Icons';
+import { PageSpinner } from '../components/ui';
 
 const typeIcon: Record<string, React.FC<{ size?: number; className?: string }>> = {
   new_issue:       AlertCircle,
@@ -52,11 +53,7 @@ export default function NotificationsPage() {
 
   const unread = notifications.filter(n => !n.read).length;
 
-  if (loading) return (
-    <div className="min-h-screen bg-stone-50 flex items-center justify-center">
-      <div className="w-6 h-6 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
-    </div>
-  );
+  if (loading) return <PageSpinner />;
 
   return (
     <div className="min-h-screen bg-stone-50 pb-24 md:pb-10">

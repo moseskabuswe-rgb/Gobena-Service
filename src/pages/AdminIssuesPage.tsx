@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import type { Issue } from '../types';
 import { CheckCircle, Search, X, Clock } from '../components/Icons';
+import { SectionSpinner } from '../components/ui';
 
 const severityColor: Record<string, string> = {
   critical: 'bg-red-100 text-red-700 border-red-200',
@@ -23,6 +24,17 @@ type IssueRow = Issue & {
   shops?: { name: string } | null;
   equipment?: { name: string; brand: string; model: string } | null;
 };
+
+const SEVERITY_RANK: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+function byUrgency(a: IssueRow, b: IssueRow) {
+  // Resolved/closed issues sink to the bottom regardless of severity — nothing left to triage.
+  const aOpen = a.status === 'open' || a.status === 'in_progress';
+  const bOpen = b.status === 'open' || b.status === 'in_progress';
+  if (aOpen !== bOpen) return aOpen ? -1 : 1;
+  const rankDiff = SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity];
+  if (rankDiff !== 0) return rankDiff;
+  return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+}
 
 export default function AdminIssuesPage() {
   const [issues, setIssues]     = useState<IssueRow[]>([]);
@@ -68,7 +80,7 @@ export default function AdminIssuesPage() {
     return i.title.toLowerCase().includes(q) ||
       i.shops?.name?.toLowerCase().includes(q) ||
       i.equipment?.name?.toLowerCase().includes(q);
-  });
+  }).sort(byUrgency);
 
   return (
     <div className="min-h-screen bg-stone-50 pb-24 md:pb-10">
@@ -101,7 +113,7 @@ export default function AdminIssuesPage() {
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" /></div>
+          <SectionSpinner />
         ) : filtered.length === 0 ? (
           <div className="text-center py-12 text-stone-400">
             <CheckCircle size={32} className="mx-auto mb-3 text-green-400" />

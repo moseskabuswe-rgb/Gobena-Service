@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import type { Equipment } from '../types';
+import { Spinner } from '../components/ui';
 
 
 // Minimal QR code generator using a public API so no npm dependency needed
@@ -45,7 +46,7 @@ export default function QRPrintPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
+        <Spinner />
       </div>
     );
   }
