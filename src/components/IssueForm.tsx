@@ -52,6 +52,7 @@ export default function IssueForm({
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState('');
   const [uploadProgress, setUploadProgress] = useState('');
+  const [failedPhotoCount, setFailedPhotoCount] = useState(0);
 
   const [title, setTitle]           = useState('');
   const [description, setDescription] = useState('');
@@ -73,6 +74,7 @@ export default function IssueForm({
     setLoading(true);
 
     const photoUrls: string[] = [];
+    let failedPhotos = 0;
     for (let i = 0; i < photos.length; i++) {
       setUploadProgress(`Compressing photo ${i + 1} of ${photos.length}…`);
       try {
@@ -82,13 +84,18 @@ export default function IssueForm({
         const { error: uploadErr } = await db.storage
           .from('issue-photos')
           .upload(path, compressed, { contentType: 'image/jpeg' });
-        if (!uploadErr) {
+        if (uploadErr) {
+          failedPhotos++;
+        } else {
           const { data } = db.storage.from('issue-photos').getPublicUrl(path);
           photoUrls.push(data.publicUrl);
         }
-      } catch { /* skip failed photo */ }
+      } catch {
+        failedPhotos++;
+      }
     }
     setUploadProgress('');
+    setFailedPhotoCount(failedPhotos);
 
     const { error: issueErr } = await db.from('issues').insert({
       equipment_id:   equipment.id,
@@ -134,6 +141,12 @@ export default function IssueForm({
             </div>
             <h3 className="font-bold text-stone-900 mb-1">Issue reported</h3>
             <p className="text-sm text-stone-500">Gobena has been notified and will follow up soon.</p>
+            {failedPhotoCount > 0 && (
+              <p className="mt-3 flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 rounded-xl px-3 py-2">
+                <AlertCircle size={13} className="shrink-0" />
+                {failedPhotoCount} photo{failedPhotoCount > 1 ? 's' : ''} didn't upload — the report was still submitted without {failedPhotoCount > 1 ? 'them' : 'it'}.
+              </p>
+            )}
             <button onClick={onSubmit}
               className="mt-6 px-6 py-2.5 bg-stone-900 text-white text-sm font-semibold rounded-xl">
               Done

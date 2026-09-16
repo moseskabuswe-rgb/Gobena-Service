@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../lib/AuthContext';
 import type { Equipment, MaintenanceLog } from '../types';
-import { Plus, X, CheckCircle, AlertCircle, Wrench, Calendar, Clock } from '../components/Icons';
+import { Plus, CheckCircle, AlertCircle, Wrench, Calendar, Clock } from '../components/Icons';
+import { SectionSpinner, ModalShell } from '../components/ui';
 
 const LOG_TYPES = [
   { value: 'routine',    label: 'Routine service',  desc: 'Scheduled maintenance' },
@@ -123,9 +124,7 @@ export default function MaintenancePage() {
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="w-6 h-6 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
-          </div>
+          <SectionSpinner />
         ) : logs.length === 0 ? (
           <div className="text-center py-12 text-stone-400">
             <Wrench size={32} className="mx-auto mb-3 opacity-30" />
@@ -172,16 +171,8 @@ export default function MaintenancePage() {
 
       {/* ── Log form modal ── */}
       {showForm && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center">
-          <div className="bg-white w-full md:max-w-xl md:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100">
-              <h2 className="font-bold text-stone-900">Log maintenance work</h2>
-              <button onClick={() => setShowForm(false)} className="p-2 rounded-xl text-stone-400 hover:bg-stone-100">
-                <X size={18} />
-              </button>
-            </div>
-
-            {success ? (
+        <ModalShell title="Log maintenance work" onClose={() => setShowForm(false)}>
+          {success ? (
               <div className="flex-1 flex flex-col items-center justify-center py-10">
                 <CheckCircle size={40} className="text-green-500 mb-3" />
                 <p className="font-semibold text-stone-900">Maintenance logged</p>
@@ -281,9 +272,8 @@ export default function MaintenancePage() {
                   {submitting ? 'Saving…' : 'Save log'}
                 </button>
               </form>
-            )}
-          </div>
-        </div>
+          )}
+        </ModalShell>
       )}
     </div>
   );

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { GoMark, Mail, AlertCircle } from '../components/Icons';
+import { Field } from '../components/ui';
 
 function AuthShell({ children, title, sub }: { children: React.ReactNode; title: string; sub: string }) {
   return (
@@ -14,24 +15,6 @@ function AuthShell({ children, title, sub }: { children: React.ReactNode; title:
         </div>
         {children}
       </div>
-    </div>
-  );
-}
-
-function Field({ label, type = 'text', value, onChange, placeholder, required }: {
-  label: string; type?: string; value: string;
-  onChange: (v: string) => void; placeholder?: string; required?: boolean;
-}) {
-  return (
-    <div>
-      <label className="block text-xs font-semibold text-stone-600 mb-1.5 uppercase tracking-wide">
-        {label}{required && <span className="text-red-500 ml-0.5">*</span>}
-      </label>
-      <input type={type} value={value} onChange={e => onChange(e.target.value)}
-        placeholder={placeholder} required={required}
-        className="w-full px-3.5 py-2.5 text-sm border border-stone-200 rounded-xl bg-white
-          focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent
-          placeholder:text-stone-300 transition" />
     </div>
   );
 }

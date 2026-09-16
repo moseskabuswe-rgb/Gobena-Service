@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../lib/AuthContext';
 import type { Equipment } from '../types';
-import { Plus, Wrench, Search, ChevronRight, X, AlertCircle, QrCode, Hash, CheckCircle } from '../components/Icons';
+import { Plus, Wrench, Search, ChevronRight, AlertCircle, QrCode, Hash, CheckCircle } from '../components/Icons';
+import { Field, SectionSpinner, ModalShell } from '../components/ui';
 
 const statusColor: Record<string, string> = {
   operational:     'bg-green-100 text-green-700',
@@ -96,18 +97,6 @@ export default function PartnerEquipmentPage() {
     return (new Date(eq.next_service_date).getTime() - Date.now()) / 86400000 <= 14;
   };
 
-  const Field = ({ label, value, onChange, type = 'text', placeholder, required }: {
-    label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string; required?: boolean;
-  }) => (
-    <div>
-      <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wide mb-1.5">
-        {label}{required && <span className="text-red-500 ml-0.5">*</span>}
-      </label>
-      <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-        className="w-full px-3.5 py-2.5 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400" />
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-stone-50 pb-24 md:pb-10">
       <div className="max-w-4xl mx-auto px-4 md:px-8 pt-6 md:pt-8 space-y-5">
@@ -130,9 +119,7 @@ export default function PartnerEquipmentPage() {
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="w-6 h-6 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
-          </div>
+          <SectionSpinner />
         ) : filtered.length === 0 ? (
           <div className="text-center py-12 text-stone-400">
             <Wrench size={32} className="mx-auto mb-3 opacity-30" />
@@ -185,48 +172,39 @@ export default function PartnerEquipmentPage() {
 
       {/* Add machine modal */}
       {showAdd && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center p-0 md:p-8">
-          <div className="bg-white w-full md:max-w-xl md:rounded-2xl rounded-t-2xl max-h-[92vh] flex flex-col md:shadow-xl">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100">
-              <h2 className="font-bold text-stone-900">Add equipment</h2>
-              <button onClick={() => setShowAdd(false)} className="p-2 rounded-xl text-stone-400 hover:bg-stone-100">
-                <X size={18} />
-              </button>
+        <ModalShell title="Add equipment" onClose={() => setShowAdd(false)}>
+          {success ? (
+            <div className="flex-1 flex flex-col items-center justify-center py-10">
+              <CheckCircle size={40} className="text-green-500 mb-3" />
+              <p className="font-semibold text-stone-900">Machine added</p>
+              <p className="text-xs text-stone-400 mt-1">Gobena has been notified</p>
             </div>
-
-            {success ? (
-              <div className="flex-1 flex flex-col items-center justify-center py-10">
-                <CheckCircle size={40} className="text-green-500 mb-3" />
-                <p className="font-semibold text-stone-900">Machine added</p>
-                <p className="text-xs text-stone-400 mt-1">Gobena has been notified</p>
+          ) : (
+            <form onSubmit={handleAdd} className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+              <Field label="Machine name" value={form.name} onChange={set('name')} placeholder="Espresso Machine" required />
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Brand" value={form.brand} onChange={set('brand')} placeholder="La Marzocco" required />
+                <Field label="Model" value={form.model} onChange={set('model')} placeholder="Linea Mini" required />
               </div>
-            ) : (
-              <form onSubmit={handleAdd} className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-                <Field label="Machine name" value={form.name} onChange={set('name')} placeholder="Espresso Machine" required />
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Brand" value={form.brand} onChange={set('brand')} placeholder="La Marzocco" required />
-                  <Field label="Model" value={form.model} onChange={set('model')} placeholder="Linea Mini" required />
+              <Field label="Serial number" value={form.serial_number} onChange={set('serial_number')} placeholder="SN-00001" />
+              <Field label="Install date" type="date" value={form.install_date} onChange={set('install_date')} />
+              <div>
+                <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wide mb-1.5">Notes</label>
+                <textarea value={form.notes} onChange={e => set('notes')(e.target.value)} rows={2} placeholder="Any notes about this machine…"
+                  className="w-full px-3.5 py-2.5 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none" />
+              </div>
+              {error && (
+                <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 rounded-xl px-3.5 py-3">
+                  <AlertCircle size={14} />{error}
                 </div>
-                <Field label="Serial number" value={form.serial_number} onChange={set('serial_number')} placeholder="SN-00001" />
-                <Field label="Install date" type="date" value={form.install_date} onChange={set('install_date')} />
-                <div>
-                  <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wide mb-1.5">Notes</label>
-                  <textarea value={form.notes} onChange={e => set('notes')(e.target.value)} rows={2} placeholder="Any notes about this machine…"
-                    className="w-full px-3.5 py-2.5 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none" />
-                </div>
-                {error && (
-                  <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 rounded-xl px-3.5 py-3">
-                    <AlertCircle size={14} />{error}
-                  </div>
-                )}
-                <button type="submit" disabled={submitting}
-                  className="w-full py-3 bg-stone-900 text-white font-semibold text-sm rounded-xl hover:bg-stone-800 transition disabled:opacity-50">
-                  {submitting ? 'Adding…' : 'Add machine'}
-                </button>
-              </form>
-            )}
-          </div>
-        </div>
+              )}
+              <button type="submit" disabled={submitting}
+                className="w-full py-3 bg-stone-900 text-white font-semibold text-sm rounded-xl hover:bg-stone-800 transition disabled:opacity-50">
+                {submitting ? 'Adding…' : 'Add machine'}
+              </button>
+            </form>
+          )}
+        </ModalShell>
       )}
     </div>
   );

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../lib/AuthContext';
 import type { Message, Shop } from '../types';
 import { Send, Store, AlertCircle } from '../components/Icons';
+import { PageSpinner } from '../components/ui';
 
 type Thread = { shop: Shop; messages: Message[]; unread: number; lastAt: string };
 
@@ -103,11 +104,7 @@ export default function AdminMessagesPage() {
 
   const activeThread = threads.find(t => t.shop.id === activeShopId);
 
-  if (loading) return (
-    <div className="min-h-screen bg-stone-50 flex items-center justify-center">
-      <div className="w-6 h-6 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
-    </div>
-  );
+  if (loading) return <PageSpinner />;
 
   return (
     <div className="flex h-screen md:h-[calc(100vh-56px)] bg-stone-50">

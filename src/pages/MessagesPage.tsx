@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../lib/AuthContext';
 import type { Message } from '../types';
 import { Send, AlertCircle } from '../components/Icons';
+import { PageSpinner } from '../components/ui';
 
 export default function MessagesPage() {
   const { user, profile, shop } = useAuth();
@@ -86,11 +87,7 @@ export default function MessagesPage() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
   };
 
-  if (loading) return (
-    <div className="min-h-screen bg-stone-50 flex items-center justify-center">
-      <div className="w-6 h-6 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
-    </div>
-  );
+  if (loading) return <PageSpinner />;
 
   return (
     <div className="flex flex-col h-screen md:h-[calc(100vh-56px)] bg-stone-50 pb-16 md:pb-0">

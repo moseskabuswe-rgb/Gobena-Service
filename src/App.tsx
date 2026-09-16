@@ -2,6 +2,7 @@ import { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './lib/AuthContext';
 import Navbar from './components/Navbar';
+import { PageSpinner } from './components/ui';
 
 const LoginPage           = lazy(() => import('./pages/AuthPages').then(m => ({ default: m.LoginPage })));
 const RegisterPage        = lazy(() => import('./pages/AuthPages').then(m => ({ default: m.RegisterPage })));
@@ -21,11 +22,7 @@ const AdminIssuesPage     = lazy(() => import('./pages/AdminIssuesPage'));
 const AdminMessagesPage   = lazy(() => import('./pages/AdminMessagesPage'));
 
 function Spinner() {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-stone-50">
-      <div className="w-7 h-7 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
-    </div>
-  );
+  return <PageSpinner />;
 }
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
