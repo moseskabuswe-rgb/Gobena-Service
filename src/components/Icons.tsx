@@ -84,9 +84,12 @@ export const Star          = icon(<polygon points="12 2 15.09 8.26 22 9.27 17 14
 // Gobena logo mark — used as favicon and in-app branding
 export function GoMark({ size = 32 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="40" height="40" rx="10" fill="#2C1810"/>
-      <path d="M20 8C13.373 8 8 13.373 8 20C8 26.627 13.373 32 20 32C23.8 32 27.2 30.18 29.4 27.36L24.8 24.52C23.6 25.92 21.9 26.8 20 26.8C16.24 26.8 13.2 23.76 13.2 20C13.2 16.24 16.24 13.2 20 13.2C22.4 13.2 24.52 14.4 25.84 16.24H20V21H32V20C32 13.373 26.627 8 20 8Z" fill="#C8A97D"/>
-    </svg>
+    <img
+      src="/logo-192.png"
+      width={size}
+      height={size}
+      alt="Gobena Service"
+      className="rounded-lg shrink-0"
+    />
   );
 }
